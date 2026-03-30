@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Table, Button, Space, Input, Typography, Tag, Tooltip,
-  Modal, Form, Upload, Select, message, Popconfirm, Card, Breadcrumb,
+  Modal, Form, Upload, Select, message, Popconfirm, Card,
 } from 'antd';
 import {
   UploadOutlined, PlusOutlined, SearchOutlined,
-  DeleteOutlined, EyeOutlined, InboxOutlined,
+  DeleteOutlined, EyeOutlined, InboxOutlined, FolderOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import api from '../../api';
+import api, { getFolders } from '../../api';
 import { useLang } from '../../contexts/LangContext';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
+const { Option } = Select;
 
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return '-';
@@ -30,55 +31,75 @@ export default function FilesPage() {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [filterLineId, setFilterLineId] = useState(null);
+  const [filterMachineId, setFilterMachineId] = useState(null);
   const [uploadModal, setUploadModal] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState([]);
+  const [folders, setFolders] = useState({ lines: [] });
+  const [uploadLineId, setUploadLineId] = useState(null);
+  const [uploadMachineId, setUploadMachineId] = useState(null);
 
   const { t } = useLang();
   const { canEdit, isAdmin } = useAuth();
   const navigate = useNavigate();
+
+  const fetchFolders = useCallback(async () => {
+    try {
+      const res = await getFolders();
+      setFolders(res.data);
+    } catch {
+      // silently ignore
+    }
+  }, []);
 
   const fetchFiles = useCallback(async () => {
     setLoading(true);
     try {
       const params = { page, limit: 20 };
       if (search) params.search = search;
+      if (filterMachineId) params.folderId = filterMachineId;
       const res = await api.get('/files', { params });
-      setFiles(res.data.data);
-      setTotal(res.data.total);
+      let data = res.data.data;
+      // client-side filter by line when no specific machine is selected
+      if (filterLineId && !filterMachineId) {
+        const line = folders.lines.find(l => l.id === filterLineId);
+        if (line) {
+          const machineIds = new Set((line.machines || []).map(m => m.id));
+          data = data.filter(f => f.folderId && machineIds.has(f.folderId));
+        }
+      }
+      setFiles(data);
+      setTotal(filterLineId && !filterMachineId ? data.length : res.data.total);
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, filterLineId, filterMachineId, folders]);
 
+  useEffect(() => { fetchFolders(); }, []);
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
-  const handleSearch = (value) => {
-    setSearch(value);
-    setPage(1);
-  };
+  const handleSearch = (value) => { setSearch(value); setPage(1); };
+  const handleFilterLine = (value) => { setFilterLineId(value || null); setFilterMachineId(null); setPage(1); };
+  const handleFilterMachine = (value) => { setFilterMachineId(value || null); setPage(1); };
 
   const handleUpload = async (values) => {
-    if (!fileList.length) {
-      message.error(t('selectFile'));
-      return;
-    }
+    if (!fileList.length) { message.error(t('selectFile')); return; }
     setUploadLoading(true);
     try {
       const formData = new FormData();
       formData.append('file', fileList[0].originFileObj);
       if (values.commitMessage) formData.append('commitMessage', values.commitMessage);
       if (values.description) formData.append('description', values.description);
-      if (values.filePath) formData.append('filePath', values.filePath);
-
-      await api.post('/files', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      if (uploadMachineId) formData.append('folderId', uploadMachineId);
+      await api.post('/files', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       message.success(t('fileUploaded'));
       setUploadModal(false);
       form.resetFields();
       setFileList([]);
+      setUploadLineId(null);
+      setUploadMachineId(null);
       fetchFiles();
     } catch (err) {
       message.error(err.response?.data?.message || t('error'));
@@ -97,6 +118,19 @@ export default function FilesPage() {
     }
   };
 
+  const filterLine = folders.lines.find(l => l.id === filterLineId);
+  const filterMachines = filterLine ? (filterLine.machines || []) : [];
+  const uploadLine = folders.lines.find(l => l.id === uploadLineId);
+  const uploadMachines = uploadLine ? (uploadLine.machines || []) : [];
+
+  const closeModal = () => {
+    setUploadModal(false);
+    form.resetFields();
+    setFileList([]);
+    setUploadLineId(null);
+    setUploadMachineId(null);
+  };
+
   const columns = [
     {
       title: t('fileName'),
@@ -108,9 +142,22 @@ export default function FilesPage() {
       ),
     },
     {
-      title: t('filePath'),
-      dataIndex: 'path',
-      render: (p) => <Text type="secondary">{p}</Text>,
+      title: t('folderPath'),
+      dataIndex: 'folderPath',
+      render: (fp, record) => {
+        if (fp) {
+          return (
+            <Space size={4}>
+              <FolderOutlined style={{ color: '#1677ff' }} />
+              <Text type="secondary">{fp}</Text>
+            </Space>
+          );
+        }
+        if (record.path && record.path !== '/') {
+          return <Text type="secondary">{record.path}</Text>;
+        }
+        return <Text type="secondary">—</Text>;
+      },
     },
     {
       title: t('versions'),
@@ -141,12 +188,7 @@ export default function FilesPage() {
       render: (_, record) => (
         <Space>
           <Tooltip title={t('viewDetails')}>
-            <Button
-              type="text"
-              size="small"
-              icon={<EyeOutlined />}
-              onClick={() => navigate(`/files/${record.id}`)}
-            />
+            <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/files/${record.id}`)} />
           </Tooltip>
           {(canEdit || isAdmin) && (
             <Popconfirm
@@ -170,25 +212,41 @@ export default function FilesPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Title level={3} style={{ margin: 0 }}>{t('fileList')}</Title>
         {canEdit && (
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setUploadModal(true)}
-          >
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setUploadModal(true)}>
             {t('uploadFile')}
           </Button>
         )}
       </div>
 
       <Card>
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           <Input.Search
             placeholder={t('search')}
             allowClear
             onSearch={handleSearch}
-            style={{ maxWidth: 400 }}
+            style={{ maxWidth: 300 }}
             prefix={<SearchOutlined />}
           />
+          <Select
+            allowClear
+            placeholder={t('allLines')}
+            style={{ width: 180 }}
+            onChange={handleFilterLine}
+            value={filterLineId}
+          >
+            {folders.lines.map(l => <Option key={l.id} value={l.id}>{l.name}</Option>)}
+          </Select>
+          {filterLineId && (
+            <Select
+              allowClear
+              placeholder={t('allMachines')}
+              style={{ width: 180 }}
+              onChange={handleFilterMachine}
+              value={filterMachineId}
+            >
+              {filterMachines.map(m => <Option key={m.id} value={m.id}>{m.name}</Option>)}
+            </Select>
+          )}
         </div>
 
         <Table
@@ -201,17 +259,16 @@ export default function FilesPage() {
             total,
             pageSize: 20,
             onChange: (p) => setPage(p),
-            showTotal: (t) => `${t} files`,
+            showTotal: (tot) => `${tot} files`,
           }}
           size="middle"
         />
       </Card>
 
-      {/* Upload Modal */}
       <Modal
         title={t('uploadFile')}
         open={uploadModal}
-        onCancel={() => { setUploadModal(false); form.resetFields(); setFileList([]); }}
+        onCancel={closeModal}
         footer={null}
         width={560}
       >
@@ -223,17 +280,35 @@ export default function FilesPage() {
               onChange={({ fileList: fl }) => setFileList(fl.slice(-1))}
               maxCount={1}
             >
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined />
-              </p>
+              <p className="ant-upload-drag-icon"><InboxOutlined /></p>
               <p className="ant-upload-text">{t('uploadHint')}</p>
               <p className="ant-upload-hint">{t('uploadHint2')}</p>
             </Dragger>
           </Form.Item>
 
-          <Form.Item name="filePath" label={t('filePath')}>
-            <Input placeholder={t('filePathPlaceholder')} />
+          <Form.Item label={t('selectLine')}>
+            <Select
+              allowClear
+              placeholder={t('selectLine')}
+              onChange={(val) => { setUploadLineId(val || null); setUploadMachineId(null); }}
+              value={uploadLineId}
+            >
+              {folders.lines.map(l => <Option key={l.id} value={l.id}>{l.name}</Option>)}
+            </Select>
           </Form.Item>
+
+          {uploadLineId && (
+            <Form.Item label={t('selectMachine')}>
+              <Select
+                allowClear
+                placeholder={t('selectMachine')}
+                onChange={(val) => setUploadMachineId(val || null)}
+                value={uploadMachineId}
+              >
+                {uploadMachines.map(m => <Option key={m.id} value={m.id}>{m.name}</Option>)}
+              </Select>
+            </Form.Item>
+          )}
 
           <Form.Item name="description" label={`${t('description')} ${t('optional')}`}>
             <Input.TextArea rows={2} placeholder={t('descriptionPlaceholder')} />
@@ -244,9 +319,7 @@ export default function FilesPage() {
           </Form.Item>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Button onClick={() => { setUploadModal(false); form.resetFields(); setFileList([]); }}>
-              {t('cancel')}
-            </Button>
+            <Button onClick={closeModal}>{t('cancel')}</Button>
             <Button type="primary" htmlType="submit" loading={uploadLoading} icon={<UploadOutlined />}>
               {t('upload')}
             </Button>

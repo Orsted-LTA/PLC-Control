@@ -17,6 +17,7 @@ const authRoutes = require('./src/routes/auth');
 const userRoutes = require('./src/routes/users');
 const fileRoutes = require('./src/routes/files');
 const versionRoutes = require('./src/routes/versions');
+const folderRoutes = require('./src/routes/folders');
 
 // Initialize database
 initDb();
@@ -24,7 +25,7 @@ initDb();
 const app = express();
 
 // Security headers
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(helmet({ crossOriginResourcePolicy: false }));
 
 // CORS
 const corsOptions = {
@@ -69,6 +70,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/versions', versionRoutes);
+app.use('/api/folders', folderRoutes);
 
 // Rate limiting for static file serving (SPA fallback)
 const staticLimiter = rateLimit({

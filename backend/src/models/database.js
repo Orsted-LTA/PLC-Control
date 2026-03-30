@@ -44,6 +44,24 @@ function createTables() {
       updated_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z')
     );
 
+    CREATE TABLE IF NOT EXISTS folders (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      parent_id TEXT,
+      type TEXT NOT NULL DEFAULT 'line',
+      description TEXT,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
+      is_deleted INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (parent_id) REFERENCES folders(id),
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_folders_parent_id ON folders(parent_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_folders_name_parent
+      ON folders(name, parent_id) WHERE is_deleted = 0;
+
     CREATE TABLE IF NOT EXISTS files (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -106,6 +124,13 @@ function createTables() {
 
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
   `);
+
+  // Safe migration: add folder_id column to files if not present
+  const fileColumns = db.prepare("PRAGMA table_info(files)").all();
+  const hasFolderId = fileColumns.some(col => col.name === 'folder_id');
+  if (!hasFolderId) {
+    db.exec('ALTER TABLE files ADD COLUMN folder_id TEXT REFERENCES folders(id)');
+  }
 }
 
 function seedAdmin() {

@@ -9,16 +9,20 @@ const { runCleanup } = require('../utils/cleanup');
 
 async function listFiles(req, res) {
   const db = getDb();
-  const { search, page = 1, limit = 50 } = req.query;
+  const { search, page = 1, limit = 50, folderId } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   let query = `
     SELECT f.*, u.display_name as creator_name,
       (SELECT COUNT(*) FROM versions v WHERE v.file_id = f.id) as version_count,
       (SELECT v2.created_at FROM versions v2 WHERE v2.file_id = f.id ORDER BY v2.version_number DESC LIMIT 1) as last_modified,
-      (SELECT v3.size FROM versions v3 WHERE v3.file_id = f.id ORDER BY v3.version_number DESC LIMIT 1) as current_size
+      (SELECT v3.size FROM versions v3 WHERE v3.file_id = f.id ORDER BY v3.version_number DESC LIMIT 1) as current_size,
+      fo.name as folder_name,
+      pfo.name as parent_folder_name
     FROM files f
     LEFT JOIN users u ON f.created_by = u.id
+    LEFT JOIN folders fo ON f.folder_id = fo.id
+    LEFT JOIN folders pfo ON fo.parent_id = pfo.id
     WHERE f.is_deleted = 0
   `;
 
@@ -26,6 +30,10 @@ async function listFiles(req, res) {
   if (search) {
     query += ' AND (f.name LIKE ? OR f.path LIKE ? OR f.description LIKE ?)';
     params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+  }
+  if (folderId) {
+    query += ' AND f.folder_id = ?';
+    params.push(folderId);
   }
 
   const total = db.prepare(`SELECT COUNT(*) as cnt FROM (${query})`).get(...params).cnt;
@@ -36,17 +44,28 @@ async function listFiles(req, res) {
   const files = db.prepare(query).all(...params);
 
   res.json({
-    data: files.map(f => ({
-      id: f.id,
-      name: f.name,
-      path: f.path,
-      description: f.description,
-      versionCount: f.version_count,
-      lastModified: f.last_modified,
-      currentSize: f.current_size,
-      createdBy: f.creator_name,
-      createdAt: f.created_at,
-    })),
+    data: files.map(f => {
+      let folderPath = null;
+      if (f.folder_name) {
+        folderPath = f.parent_folder_name
+          ? `${f.parent_folder_name} / ${f.folder_name}`
+          : f.folder_name;
+      }
+      return {
+        id: f.id,
+        name: f.name,
+        path: f.path,
+        description: f.description,
+        folderId: f.folder_id || null,
+        folderName: f.folder_name || null,
+        folderPath,
+        versionCount: f.version_count,
+        lastModified: f.last_modified,
+        currentSize: f.current_size,
+        createdBy: f.creator_name,
+        createdAt: f.created_at,
+      };
+    }),
     total,
     page: parseInt(page),
     limit: parseInt(limit),
@@ -59,9 +78,26 @@ async function uploadFile(req, res) {
   }
 
   const db = getDb();
-  const { commitMessage, description, filePath = '/' } = req.body;
+  const { commitMessage, description, filePath = '/', folderId } = req.body;
   const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
-  const normalizedPath = filePath.startsWith('/') ? filePath : '/' + filePath;
+
+  // Compute normalizedPath: derive from folder if folderId given
+  let normalizedPath = filePath.startsWith('/') ? filePath : '/' + filePath;
+  if (folderId) {
+    const folder = db.prepare(`
+      SELECT f.name as folder_name, pf.name as line_name
+      FROM folders f
+      LEFT JOIN folders pf ON f.parent_id = pf.id
+      WHERE f.id = ? AND f.is_deleted = 0
+    `).get(folderId);
+    if (!folder) {
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ message: 'Folder not found' });
+    }
+    normalizedPath = folder.line_name
+      ? `/${folder.line_name}/${folder.folder_name}`
+      : `/${folder.folder_name}`;
+  }
 
   // Check if file with same name in same path already exists
   let file = db
@@ -77,11 +113,12 @@ async function uploadFile(req, res) {
       path: normalizedPath,
       description: description || null,
       created_by: req.user.id,
+      folder_id: folderId || null,
     };
     db.prepare(`
-      INSERT INTO files (id, name, path, description, created_by)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(file.id, file.name, file.path, file.description, file.created_by);
+      INSERT INTO files (id, name, path, description, created_by, folder_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(file.id, file.name, file.path, file.description, file.created_by, file.folder_id);
     isNewFile = true;
   } else if (description !== undefined) {
     db.prepare("UPDATE files SET description = ?, updated_at = datetime('now') || 'Z' WHERE id = ?")
@@ -165,9 +202,13 @@ async function uploadFile(req, res) {
 async function getFile(req, res) {
   const db = getDb();
   const file = db.prepare(`
-    SELECT f.*, u.display_name as creator_name
+    SELECT f.*, u.display_name as creator_name,
+      fo.name as folder_name, fo.type as folder_type,
+      pfo.id as line_id, pfo.name as line_name
     FROM files f
     LEFT JOIN users u ON f.created_by = u.id
+    LEFT JOIN folders fo ON f.folder_id = fo.id
+    LEFT JOIN folders pfo ON fo.parent_id = pfo.id
     WHERE f.id = ? AND f.is_deleted = 0
   `).get(req.params.id);
 
@@ -182,11 +223,23 @@ async function getFile(req, res) {
     ORDER BY v.version_number DESC
   `).all(file.id);
 
+  let folderPath = null;
+  if (file.folder_name) {
+    folderPath = file.line_name
+      ? `${file.line_name} / ${file.folder_name}`
+      : file.folder_name;
+  }
+
   res.json({
     id: file.id,
     name: file.name,
     path: file.path,
     description: file.description,
+    folderId: file.folder_id || null,
+    folderName: file.folder_name || null,
+    folderPath,
+    lineId: file.line_id || null,
+    lineName: file.line_name || null,
     createdBy: file.creator_name,
     createdAt: file.created_at,
     updatedAt: file.updated_at,

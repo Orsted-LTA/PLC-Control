@@ -17,6 +17,7 @@ import FileDetailPage from './pages/FileDetail/FileDetailPage';
 import HistoryPage from './pages/History/HistoryPage';
 import UsersPage from './pages/Users/UsersPage';
 import ProfilePage from './pages/Profile/ProfilePage';
+import FoldersPage from './pages/Folders/FoldersPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -77,6 +78,14 @@ function AppRoutes() {
               element={
                 <AdminRoute>
                   <UsersPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="folders"
+              element={
+                <AdminRoute>
+                  <FoldersPage />
                 </AdminRoute>
               }
             />
