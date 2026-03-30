@@ -192,6 +192,7 @@ export default function FileDetailPage() {
                 <FileDiff
                   diff={diff.diff}
                   isBinary={diff.isBinary}
+                  isOfficeExtracted={diff.isOfficeExtracted}
                   fromVersion={diff.from}
                   toVersion={diff.to}
                 />

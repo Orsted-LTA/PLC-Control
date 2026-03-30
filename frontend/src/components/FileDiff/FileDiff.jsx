@@ -6,7 +6,7 @@ import 'diff2html/bundles/css/diff2html.min.css';
 
 const { Text } = Typography;
 
-export default function FileDiff({ diff, isBinary, fromVersion, toVersion }) {
+export default function FileDiff({ diff, isBinary, isOfficeExtracted, fromVersion, toVersion }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -58,11 +58,21 @@ export default function FileDiff({ diff, isBinary, fromVersion, toVersion }) {
   if (!diff) return null;
 
   return (
-    <div
-      ref={containerRef}
-      style={{ fontSize: 13, overflow: 'auto' }}
-      className="diff-container"
-    />
+    <div>
+      {isOfficeExtracted && (
+        <Alert
+          type="warning"
+          message="📄 Nội dung được trích xuất từ file Office để so sánh. Một số định dạng (bảng, hình ảnh, biểu đồ) có thể không hiển thị."
+          showIcon
+          style={{ marginBottom: 12 }}
+        />
+      )}
+      <div
+        ref={containerRef}
+        style={{ fontSize: 13, overflow: 'auto' }}
+        className="diff-container"
+      />
+    </div>
   );
 }
 

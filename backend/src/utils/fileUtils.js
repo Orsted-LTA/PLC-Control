@@ -32,6 +32,7 @@ function isBinaryMime(mimeType) {
     'application/xml',
     'application/javascript',
     'application/x-javascript',
+    'text/csv',
   ];
   return !textTypes.some((t) => mimeType.startsWith(t));
 }
