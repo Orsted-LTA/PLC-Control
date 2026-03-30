@@ -136,14 +136,15 @@ async function updateProfile(req, res) {
   const { displayName, avatarUrl } = req.body;
   const db = getDb();
 
-  const updates = ["updated_at = datetime('now') || 'Z'"];
+  const updates = [];
   const values = [];
 
-  if (displayName !== undefined) { updates.unshift('display_name = ?'); values.push(displayName.trim()); }
-  if (avatarUrl !== undefined) { updates.unshift('avatar_url = ?'); values.push(avatarUrl || null); }
+  if (displayName !== undefined) { updates.push('display_name = ?'); values.push(displayName.trim()); }
+  if (avatarUrl !== undefined) { updates.push('avatar_url = ?'); values.push(avatarUrl || null); }
 
   if (values.length === 0) return res.status(400).json({ message: 'Nothing to update' });
 
+  updates.push("updated_at = datetime('now') || 'Z'");
   values.push(req.user.id);
   db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
