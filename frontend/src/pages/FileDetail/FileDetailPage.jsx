@@ -90,8 +90,28 @@ export default function FileDetailPage() {
     }
   };
 
-  const handleDownload = (versionId) => {
-    window.open(`/api/versions/${versionId}/download`, '_blank');
+  const handleDownload = async (versionId) => {
+    try {
+      const res = await api.get(`/versions/${versionId}/download`, {
+        responseType: 'blob',
+      });
+      const disposition = res.headers['content-disposition'];
+      let fileName = 'download';
+      if (disposition) {
+        const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i);
+        if (match) fileName = decodeURIComponent(match[1]);
+      }
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      message.error(err.response?.data?.message || t('error'));
+    }
   };
 
   const handleRestore = async (versionId, versionNumber) => {

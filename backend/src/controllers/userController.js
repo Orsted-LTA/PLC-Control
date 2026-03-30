@@ -98,7 +98,7 @@ async function updateUser(req, res) {
 
   if (updates.length === 0) return res.status(400).json({ message: 'Nothing to update' });
 
-  updates.push("updated_at = datetime('now')");
+  updates.push("updated_at = datetime('now') || 'Z'");
   values.push(req.params.id);
 
   db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
@@ -119,7 +119,7 @@ async function deleteUser(req, res) {
   const user = db.prepare('SELECT id, username FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ message: 'User not found' });
 
-  db.prepare('UPDATE users SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?').run(req.params.id);
+  db.prepare('UPDATE users SET is_active = 0, updated_at = datetime(\'now\') || \'Z\' WHERE id = ?').run(req.params.id);
 
   db.prepare(`
     INSERT INTO activity_log (id, user_id, action, entity_type, entity_id, entity_name)
@@ -133,7 +133,7 @@ async function updateProfile(req, res) {
   const { displayName, avatarUrl } = req.body;
   const db = getDb();
 
-  const updates = ["updated_at = datetime('now')"];
+  const updates = ["updated_at = datetime('now') || 'Z'"];
   const values = [];
 
   if (displayName !== undefined) { updates.unshift('display_name = ?'); values.push(displayName.trim()); }
@@ -165,7 +165,7 @@ async function changePassword(req, res) {
   }
 
   const newHash = await bcrypt.hash(newPassword, 10);
-  db.prepare("UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?")
+  db.prepare("UPDATE users SET password_hash = ?, updated_at = datetime('now') || 'Z' WHERE id = ?")
     .run(newHash, req.user.id);
 
   // Revoke all refresh tokens
