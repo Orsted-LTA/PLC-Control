@@ -344,7 +344,7 @@ export default function FileDetailPage() {
                                 <div style={{ position: 'absolute', top: 10, left: 6, width: 18, height: 2, backgroundColor: '#d9d9d9' }} />
                               </div>
                               {/* Version circle */}
-                              <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: isLatest ? '#1677ff' : '#52c41a', flexShrink: 0, marginTop: 6, marginRight: 8, position: 'relative', zIndex: 1 }} />
+                              <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#52c41a', flexShrink: 0, marginTop: 6, marginRight: 8, position: 'relative', zIndex: 1 }} />
                               {/* Version info */}
                               <div
                                 onClick={() => handleSelectVersion(v)}
