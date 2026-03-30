@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Card, Table, Tag, Typography, Input, Space, Select, Button } from 'antd';
+import { Card, Table, Tag, Typography, Input, Space, Select, Button, Avatar } from 'antd';
 import { SearchOutlined, ReloadOutlined, UserOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from '../../api';
@@ -71,6 +71,12 @@ export default function HistoryPage() {
       title: t('user'),
       dataIndex: 'userName',
       width: 150,
+      render: (name, record) => (
+        <Space>
+          <Avatar size={24} src={record.avatarUrl} icon={<UserOutlined />} style={{ background: '#1677ff' }} />
+          <Text>{name}</Text>
+        </Space>
+      ),
     },
     {
       title: t('action'),

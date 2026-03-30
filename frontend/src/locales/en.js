@@ -168,4 +168,6 @@ export default {
   actionCreateFolder: 'Create Folder',
   actionUpdateFolder: 'Update Folder',
   actionDeleteFolder: 'Delete Folder',
+  avatarUploaded: 'Avatar uploaded successfully',
+  fileTooLarge: 'File size exceeds 5MB limit',
 };

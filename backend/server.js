@@ -72,6 +72,13 @@ app.use('/api/files', fileRoutes);
 app.use('/api/versions', versionRoutes);
 app.use('/api/folders', folderRoutes);
 
+// Serve uploaded avatars
+const avatarsDir = path.join(config.dataDir, 'avatars');
+if (!fs.existsSync(avatarsDir)) {
+  fs.mkdirSync(avatarsDir, { recursive: true });
+}
+app.use('/uploads/avatars', express.static(avatarsDir));
+
 // Rate limiting for static file serving (SPA fallback)
 const staticLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

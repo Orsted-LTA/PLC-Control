@@ -43,12 +43,19 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const res = await api.get('/auth/me');
+      setUser(res.data);
+    } catch {}
+  }, []);
+
   const isAdmin = user?.role === 'admin';
   const isViewer = user?.role === 'viewer';
   const canEdit = user?.role === 'admin' || user?.role === 'user';
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAdmin, isViewer, canEdit }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, isAdmin, isViewer, canEdit }}>
       {children}
     </AuthContext.Provider>
   );

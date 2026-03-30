@@ -288,7 +288,7 @@ async function getActivityLog(req, res) {
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   let query = `
-    SELECT a.*, u.display_name as user_name, u.username
+    SELECT a.*, u.display_name as user_name, u.username, u.avatar_url
     FROM activity_log a
     LEFT JOIN users u ON a.user_id = u.id
   `;
@@ -312,6 +312,7 @@ async function getActivityLog(req, res) {
       userId: l.user_id,
       userName: l.user_name,
       username: l.username,
+      avatarUrl: l.avatar_url,
       action: l.action,
       entityType: l.entity_type,
       entityId: l.entity_id,
@@ -336,7 +337,7 @@ async function getDashboardStats(req, res) {
   };
 
   const recentActivity = db.prepare(`
-    SELECT a.*, u.display_name as user_name
+    SELECT a.*, u.display_name as user_name, u.avatar_url
     FROM activity_log a
     LEFT JOIN users u ON a.user_id = u.id
     ORDER BY a.created_at DESC
@@ -348,6 +349,7 @@ async function getDashboardStats(req, res) {
     recentActivity: recentActivity.map(l => ({
       id: l.id,
       userName: l.user_name,
+      avatarUrl: l.avatar_url,
       action: l.action,
       entityName: l.entity_name,
       createdAt: l.created_at,
