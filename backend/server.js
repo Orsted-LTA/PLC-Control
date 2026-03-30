@@ -6,6 +6,7 @@ const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const fs = require('fs');
 
 const config = require('./src/config');
 const { initDb } = require('./src/models/database');
@@ -89,7 +90,6 @@ const staticLimiter = rateLimit({
 
 // Serve frontend static files in production
 const frontendDist = path.join(__dirname, '../frontend/dist');
-const fs = require('fs');
 if (fs.existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
   app.get('*', staticLimiter, (req, res) => {

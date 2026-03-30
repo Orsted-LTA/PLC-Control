@@ -191,7 +191,10 @@ async function restoreVersion(req, res) {
   }
 
   // Copy the version file to a new version
-  const newVersionNumber = latestVersion ? latestVersion.version_number + 1 : 1;
+  const latestVersionRow = db
+    .prepare('SELECT MAX(version_number) as max_ver FROM versions WHERE file_id = ?')
+    .get(file.id);
+  const newVersionNumber = (latestVersionRow?.max_ver ?? 0) + 1;
   const newVersionId = uuidv4();
   const storageDir = path.join(config.uploadDir, file.id);
   const newStoragePath = path.join(storageDir, `v${newVersionNumber}_${newVersionId}`);
