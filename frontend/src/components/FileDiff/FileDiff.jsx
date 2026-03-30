@@ -1,0 +1,74 @@
+import React, { useEffect, useRef } from 'react';
+import { Alert, Typography } from 'antd';
+import { createPatch } from 'diff';
+import * as Diff2Html from 'diff2html';
+import 'diff2html/bundles/css/diff2html.min.css';
+
+const { Text } = Typography;
+
+export default function FileDiff({ diff, isBinary, fromVersion, toVersion }) {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!diff || isBinary || !containerRef.current) return;
+
+    const html = Diff2Html.html(diff, {
+      drawFileList: false,
+      matching: 'lines',
+      outputFormat: 'line-by-line',
+      renderNothingWhenEmpty: false,
+    });
+
+    containerRef.current.innerHTML = html;
+  }, [diff, isBinary]);
+
+  if (isBinary) {
+    return (
+      <div>
+        <Alert
+          type="info"
+          message="Binary file comparison"
+          description="Content diff is not available for binary files. You can download both versions to compare manually."
+          showIcon
+        />
+        <div style={{ marginTop: 16, display: 'flex', gap: 32 }}>
+          <div>
+            <Text strong>From: v{fromVersion?.versionNumber}</Text>
+            <br />
+            <Text type="secondary">Size: {formatBytes(fromVersion?.size)}</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: 11, fontFamily: 'monospace' }}>
+              SHA256: {fromVersion?.checksum?.substring(0, 16)}...
+            </Text>
+          </div>
+          <div>
+            <Text strong>To: v{toVersion?.versionNumber}</Text>
+            <br />
+            <Text type="secondary">Size: {formatBytes(toVersion?.size)}</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: 11, fontFamily: 'monospace' }}>
+              SHA256: {toVersion?.checksum?.substring(0, 16)}...
+            </Text>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!diff) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ fontSize: 13, overflow: 'auto' }}
+      className="diff-container"
+    />
+  );
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+}

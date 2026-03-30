@@ -1,0 +1,25 @@
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const os = require('os');
+const { authenticateToken } = require('../middleware/auth');
+const {
+  listFiles, uploadFile, getFile, deleteFile,
+  getActivityLog, getDashboardStats,
+} = require('../controllers/fileController');
+
+// Use OS temp dir for initial upload
+const upload = multer({
+  dest: os.tmpdir(),
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB max
+});
+
+router.get('/stats', authenticateToken, getDashboardStats);
+router.get('/activity', authenticateToken, getActivityLog);
+router.get('/', authenticateToken, listFiles);
+router.post('/', authenticateToken, upload.single('file'), uploadFile);
+router.get('/:id', authenticateToken, getFile);
+router.delete('/:id', authenticateToken, deleteFile);
+
+module.exports = router;
