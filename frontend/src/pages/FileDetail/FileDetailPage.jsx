@@ -312,58 +312,82 @@ export default function FileDetailPage() {
 
         <Col xs={24} lg={10}>
           <Card title={t('versionHistory')} style={{ maxHeight: 600, overflow: 'auto' }}>
-            {file.versions.map((v) => (
-              <div
-                key={v.id}
-                style={{
-                  padding: '12px 0',
-                  borderBottom: '1px solid #f0f0f0',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Space>
-                    <Tag color="blue">v{v.versionNumber}</Tag>
-                    <Tag color={v.isBinary ? 'orange' : 'cyan'}>
-                      {v.isBinary ? t('binary') : t('text')}
-                    </Tag>
-                  </Space>
-                  <Space size={4}>
-                    <Tooltip title={t('download')}>
-                      <Button
-                        size="small"
-                        type="text"
-                        icon={<DownloadOutlined />}
-                        onClick={() => handleDownload(v.id)}
-                      />
-                    </Tooltip>
-                    {canEdit && v.versionNumber !== file.versions[0]?.versionNumber && (
-                      <Popconfirm
-                        title={t('restoreConfirm', { version: v.versionNumber })}
-                        onConfirm={() => handleRestore(v.id, v.versionNumber)}
-                        okText={t('yes')}
-                        cancelText={t('no')}
-                      >
-                        <Tooltip title={t('restoreVersion')}>
-                          <Button size="small" type="text" icon={<RollbackOutlined />} />
-                        </Tooltip>
-                      </Popconfirm>
-                    )}
-                  </Space>
+            {(() => {
+              const groups = {};
+              file.versions.forEach(v => {
+                const date = dayjs(v.createdAt).format('YYYY-MM-DD');
+                if (!groups[date]) groups[date] = [];
+                groups[date].push(v);
+              });
+              const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+              return (
+                <div style={{ position: 'relative' }}>
+                  {/* Vertical trunk line */}
+                  <div style={{ position: 'absolute', left: 5, top: 0, bottom: 0, width: 2, backgroundColor: '#d9d9d9', zIndex: 0 }} />
+                  {sortedDates.map(date => {
+                    const dateVersions = groups[date].slice().sort((a, b) => b.versionNumber - a.versionNumber);
+                    return (
+                      <div key={date} style={{ marginBottom: 8, position: 'relative' }}>
+                        {/* Date node row */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+                          <div style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#1677ff', border: '2px solid #fff', flexShrink: 0, position: 'relative', zIndex: 1 }} />
+                          <Text strong style={{ fontSize: 13, marginLeft: 8 }}>{date}</Text>
+                        </div>
+                        {/* Version nodes */}
+                        {dateVersions.map(v => {
+                          const isLatest = v.versionNumber === file.versions[0]?.versionNumber;
+                          const isSelected = !!selectedVersions.find(sv => sv.id === v.id);
+                          return (
+                            <div key={v.id} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 4 }}>
+                              {/* Gutter with horizontal connector line */}
+                              <div style={{ width: 24, flexShrink: 0, position: 'relative', paddingTop: 1 }}>
+                                <div style={{ position: 'absolute', top: 10, left: 6, width: 18, height: 2, backgroundColor: '#d9d9d9' }} />
+                              </div>
+                              {/* Version circle */}
+                              <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: isLatest ? '#1677ff' : '#52c41a', flexShrink: 0, marginTop: 6, marginRight: 8, position: 'relative', zIndex: 1 }} />
+                              {/* Version info */}
+                              <div
+                                onClick={() => handleSelectVersion(v)}
+                                style={{ flex: 1, padding: '4px 6px', borderRadius: 6, cursor: 'pointer', backgroundColor: isSelected ? '#e6f4ff' : 'transparent', border: `1px solid ${isSelected ? '#91caff' : 'transparent'}`, minWidth: 0 }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 4 }}>
+                                  <Space size={4} wrap>
+                                    <Tag color="blue" style={{ margin: 0 }}>v{v.versionNumber}</Tag>
+                                    <Text style={{ fontSize: 12 }}>{v.commitMessage || `Version ${v.versionNumber}`}</Text>
+                                  </Space>
+                                  <Space size={2} style={{ flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                                    <Tooltip title={t('download')}>
+                                      <Button size="small" type="text" icon={<DownloadOutlined />} onClick={() => handleDownload(v.id)} />
+                                    </Tooltip>
+                                    {canEdit && v.versionNumber !== file.versions[0]?.versionNumber && (
+                                      <Popconfirm
+                                        title={t('restoreConfirm', { version: v.versionNumber })}
+                                        onConfirm={() => handleRestore(v.id, v.versionNumber)}
+                                        okText={t('yes')}
+                                        cancelText={t('no')}
+                                      >
+                                        <Tooltip title={t('restoreVersion')}>
+                                          <Button size="small" type="text" icon={<RollbackOutlined />} />
+                                        </Tooltip>
+                                      </Popconfirm>
+                                    )}
+                                  </Space>
+                                </div>
+                                <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                                  <Text type="secondary" style={{ fontSize: 11 }}>{v.uploadedBy}</Text>
+                                  <Text type="secondary" style={{ fontSize: 11 }}>{dayjs(v.createdAt).format('HH:mm')}</Text>
+                                  <Text type="secondary" style={{ fontSize: 11 }}>{formatBytes(v.size)}</Text>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
                 </div>
-                <div style={{ marginTop: 4 }}>
-                  <Text style={{ fontSize: 13 }}>
-                    {v.commitMessage || `Version ${v.versionNumber}`}
-                  </Text>
-                </div>
-                <div style={{ marginTop: 4, display: 'flex', gap: 16 }}>
-                  <Text type="secondary" style={{ fontSize: 12 }}>{v.uploadedBy}</Text>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {dayjs(v.createdAt).format('YYYY-MM-DD HH:mm')}
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: 12 }}>{formatBytes(v.size)}</Text>
-                </div>
-              </div>
-            ))}
+              );
+            })()}
           </Card>
         </Col>
       </Row>
