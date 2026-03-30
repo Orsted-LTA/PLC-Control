@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card, Form, Input, Button, Avatar, Typography, Space,
   message, Divider, Row, Col, Tag, Upload,
@@ -18,6 +18,15 @@ export default function ProfilePage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
+
+  useEffect(() => {
+    if (user) {
+      profileForm.setFieldsValue({
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+      });
+    }
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleProfileUpdate = async (values) => {
     setProfileLoading(true);
