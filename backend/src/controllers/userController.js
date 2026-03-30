@@ -1,7 +1,10 @@
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+const fs = require('fs');
 const { getDb } = require('../models/database');
 const logger = require('../utils/logger');
+const config = require('../config');
 
 async function listUsers(req, res) {
   const db = getDb();
@@ -174,4 +177,42 @@ async function changePassword(req, res) {
   res.json({ message: 'Password changed successfully' });
 }
 
-module.exports = { listUsers, createUser, getUser, updateUser, deleteUser, updateProfile, changePassword };
+async function uploadAvatar(req, res) {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No file uploaded' });
+  }
+
+  const db = getDb();
+  const avatarsDir = path.join(config.dataDir, 'avatars');
+  if (!fs.existsSync(avatarsDir)) {
+    fs.mkdirSync(avatarsDir, { recursive: true });
+  }
+
+  const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
+  const filename = `${req.user.id}_${Date.now()}${ext}`;
+  const destPath = path.join(avatarsDir, filename);
+
+  // Remove old avatar file if it was uploaded (local path)
+  const existingUser = db.prepare('SELECT avatar_url FROM users WHERE id = ?').get(req.user.id);
+  if (existingUser?.avatar_url && existingUser.avatar_url.startsWith('/uploads/avatars/')) {
+    const oldFile = path.join(avatarsDir, path.basename(existingUser.avatar_url));
+    if (fs.existsSync(oldFile)) {
+      try { fs.unlinkSync(oldFile); } catch {}
+    }
+  }
+
+  try {
+    fs.renameSync(req.file.path, destPath);
+  } catch (err) {
+    logger.error('Failed to save avatar file', { error: err.message });
+    return res.status(500).json({ message: 'Failed to save uploaded file' });
+  }
+
+  const avatarUrl = `/uploads/avatars/${filename}`;
+  db.prepare("UPDATE users SET avatar_url = ?, updated_at = datetime('now') || 'Z' WHERE id = ?")
+    .run(avatarUrl, req.user.id);
+
+  res.json({ avatarUrl });
+}
+
+module.exports = { listUsers, createUser, getUser, updateUser, deleteUser, updateProfile, changePassword, uploadAvatar };

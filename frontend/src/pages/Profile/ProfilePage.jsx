@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
   Card, Form, Input, Button, Avatar, Typography, Space,
-  message, Divider, Row, Col, Tag,
+  message, Divider, Row, Col, Tag, Upload,
 } from 'antd';
-import { UserOutlined, LockOutlined, SaveOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons';
 import api from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLang } from '../../contexts/LangContext';
@@ -11,10 +11,11 @@ import { useLang } from '../../contexts/LangContext';
 const { Title, Text } = Typography;
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { t } = useLang();
   const [profileLoading, setProfileLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
 
@@ -26,10 +27,31 @@ export default function ProfilePage() {
         avatarUrl: values.avatarUrl || null,
       });
       message.success(t('profileUpdated'));
+      await refreshUser();
     } catch (err) {
       message.error(err.response?.data?.message || t('error'));
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = async ({ file, onSuccess, onError }) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    setUploadingAvatar(true);
+    try {
+      const res = await api.post('/users/me/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      profileForm.setFieldsValue({ avatarUrl: res.data.avatarUrl });
+      await refreshUser();
+      message.success(t('avatarUploaded'));
+      onSuccess(res.data);
+    } catch (err) {
+      message.error(err.response?.data?.message || t('error'));
+      onError(err);
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -109,7 +131,33 @@ export default function ProfilePage() {
                 <Input prefix={<UserOutlined />} placeholder="Nguyễn Văn A" />
               </Form.Item>
               <Form.Item name="avatarUrl" label={`${t('avatarUrl')} ${t('optional')}`}>
-                <Input placeholder="https://..." />
+                <Input
+                  placeholder="https://..."
+                  addonAfter={
+                    <Upload
+                      accept="image/*"
+                      showUploadList={false}
+                      customRequest={handleAvatarUpload}
+                      beforeUpload={(file) => {
+                        if (file.size > 5 * 1024 * 1024) {
+                          message.error(t('fileTooLarge'));
+                          return Upload.LIST_IGNORE;
+                        }
+                        return true;
+                      }}
+                    >
+                      <Button
+                        size="small"
+                        icon={<UploadOutlined />}
+                        loading={uploadingAvatar}
+                        type="link"
+                        style={{ padding: '0 4px' }}
+                      >
+                        {t('upload')}
+                      </Button>
+                    </Upload>
+                  }
+                />
               </Form.Item>
               <Button type="primary" htmlType="submit" loading={profileLoading} icon={<SaveOutlined />}>
                 {t('save')}

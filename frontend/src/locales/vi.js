@@ -168,4 +168,6 @@ export default {
   actionCreateFolder: 'Tạo folder',
   actionUpdateFolder: 'Cập nhật folder',
   actionDeleteFolder: 'Xóa folder',
+  avatarUploaded: 'Tải ảnh đại diện thành công',
+  fileTooLarge: 'Ảnh tối đa 5MB',
 };

@@ -142,9 +142,9 @@ export default function DashboardPage() {
             {
               title: t('user'),
               dataIndex: 'userName',
-              render: (name) => (
+              render: (name, record) => (
                 <Space>
-                  <Avatar size={24} icon={<UserOutlined />} style={{ background: '#1677ff' }} />
+                  <Avatar size={24} src={record.avatarUrl} icon={<UserOutlined />} style={{ background: '#1677ff' }} />
                   <Text>{name}</Text>
                 </Space>
               ),
