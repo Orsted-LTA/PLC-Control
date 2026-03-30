@@ -38,7 +38,7 @@ export default function FoldersPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedLine?.id]);
+  }, [selectedLine?.id, t]);
 
   useEffect(() => { fetchFolders(); }, []);
 
@@ -125,7 +125,7 @@ export default function FoldersPage() {
             loading={loading}
           >
             {lines.length === 0 ? (
-              <Empty description={t('noFiles')} />
+              <Empty description={t('none')} />
             ) : (
               <List
                 dataSource={lines}

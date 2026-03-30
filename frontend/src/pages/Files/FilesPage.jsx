@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Table, Button, Space, Input, Typography, Tag, Tooltip,
   Modal, Form, Upload, Select, message, Popconfirm, Card,
@@ -38,6 +38,7 @@ export default function FilesPage() {
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState([]);
   const [folders, setFolders] = useState({ lines: [] });
+  const foldersRef = useRef({ lines: [] });
   const [uploadLineId, setUploadLineId] = useState(null);
   const [uploadMachineId, setUploadMachineId] = useState(null);
 
@@ -48,6 +49,7 @@ export default function FilesPage() {
   const fetchFolders = useCallback(async () => {
     try {
       const res = await getFolders();
+      foldersRef.current = res.data;
       setFolders(res.data);
     } catch {
       // silently ignore
@@ -64,7 +66,7 @@ export default function FilesPage() {
       let data = res.data.data;
       // client-side filter by line when no specific machine is selected
       if (filterLineId && !filterMachineId) {
-        const line = folders.lines.find(l => l.id === filterLineId);
+        const line = foldersRef.current.lines.find(l => l.id === filterLineId);
         if (line) {
           const machineIds = new Set((line.machines || []).map(m => m.id));
           data = data.filter(f => f.folderId && machineIds.has(f.folderId));
@@ -75,7 +77,7 @@ export default function FilesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, filterLineId, filterMachineId, folders]);
+  }, [page, search, filterLineId, filterMachineId]);
 
   useEffect(() => { fetchFolders(); }, []);
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
@@ -259,7 +261,7 @@ export default function FilesPage() {
             total,
             pageSize: 20,
             onChange: (p) => setPage(p),
-            showTotal: (tot) => `${tot} files`,
+            showTotal: (tot) => `${tot} ${t('total')}`,
           }}
           size="middle"
         />
