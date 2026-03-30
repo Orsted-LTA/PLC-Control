@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Card, Form, Input, Button, Avatar, Typography, Space,
   message, Divider, Row, Col, Tag, Upload,
@@ -18,13 +18,18 @@ export default function ProfilePage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
+  const userIdRef = useRef(null);
 
   useEffect(() => {
     if (user) {
-      profileForm.setFieldsValue({
-        displayName: user.displayName,
-        avatarUrl: user.avatarUrl,
-      });
+      // Only reset form when user changes (login/logout), not when avatar/profile updates
+      if (userIdRef.current !== user.id) {
+        userIdRef.current = user.id;
+        profileForm.setFieldsValue({
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+        });
+      }
     }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -52,8 +57,14 @@ export default function ProfilePage() {
       const res = await api.post('/users/me/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      // Save current displayName before refreshUser to prevent race condition
+      const currentDisplayName = profileForm.getFieldValue('displayName') || user?.displayName;
       await refreshUser();
-      profileForm.setFieldsValue({ avatarUrl: res.data.avatarUrl });
+      // After refreshUser, restore displayName and set new avatarUrl explicitly
+      profileForm.setFieldsValue({
+        displayName: currentDisplayName,
+        avatarUrl: res.data.avatarUrl,
+      });
       message.success(t('avatarUploaded'));
       onSuccess(res.data);
     } catch (err) {
