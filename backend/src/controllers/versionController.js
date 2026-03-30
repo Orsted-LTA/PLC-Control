@@ -166,7 +166,7 @@ async function restoreVersion(req, res) {
     req.user.id
   );
 
-  db.prepare("UPDATE files SET updated_at = datetime('now') WHERE id = ?").run(file.id);
+  db.prepare("UPDATE files SET updated_at = datetime('now') || 'Z' WHERE id = ?").run(file.id);
 
   db.prepare(`
     INSERT INTO activity_log (id, user_id, action, entity_type, entity_id, entity_name, details)

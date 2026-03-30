@@ -60,7 +60,7 @@ async function uploadFile(req, res) {
 
   const db = getDb();
   const { commitMessage, description, filePath = '/' } = req.body;
-  const originalName = req.file.originalname;
+  const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
   const normalizedPath = filePath.startsWith('/') ? filePath : '/' + filePath;
 
   // Check if file with same name in same path already exists
@@ -84,7 +84,7 @@ async function uploadFile(req, res) {
     `).run(file.id, file.name, file.path, file.description, file.created_by);
     isNewFile = true;
   } else if (description !== undefined) {
-    db.prepare("UPDATE files SET description = ?, updated_at = datetime('now') WHERE id = ?")
+    db.prepare("UPDATE files SET description = ?, updated_at = datetime('now') || 'Z' WHERE id = ?")
       .run(description, file.id);
   }
 
@@ -119,7 +119,8 @@ async function uploadFile(req, res) {
     fs.mkdirSync(storageDir, { recursive: true });
   }
   const storagePath = path.join(storageDir, `v${versionNumber}_${versionId}`);
-  fs.renameSync(req.file.path, storagePath);
+  fs.copyFileSync(req.file.path, storagePath);
+  try { fs.unlinkSync(req.file.path); } catch {}
 
   // Create version record
   db.prepare(`
@@ -135,7 +136,7 @@ async function uploadFile(req, res) {
   );
 
   // Update file updated_at
-  db.prepare("UPDATE files SET updated_at = datetime('now') WHERE id = ?").run(file.id);
+  db.prepare("UPDATE files SET updated_at = datetime('now') || 'Z' WHERE id = ?").run(file.id);
 
   // Log activity
   const action = isNewFile ? 'add_file' : 'update_file';
@@ -215,7 +216,7 @@ async function deleteFile(req, res) {
   }
 
   db.prepare(`
-    UPDATE files SET is_deleted = 1, deleted_by = ?, deleted_at = datetime('now'), updated_at = datetime('now')
+    UPDATE files SET is_deleted = 1, deleted_by = ?, deleted_at = datetime('now') || 'Z', updated_at = datetime('now') || 'Z'
     WHERE id = ?
   `).run(req.user.id, file.id);
 

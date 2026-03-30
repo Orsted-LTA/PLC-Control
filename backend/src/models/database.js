@@ -40,8 +40,8 @@ function createTables() {
       role TEXT NOT NULL DEFAULT 'viewer',
       avatar_url TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z')
     );
 
     CREATE TABLE IF NOT EXISTS files (
@@ -50,8 +50,8 @@ function createTables() {
       path TEXT NOT NULL,
       description TEXT,
       created_by TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
       is_deleted INTEGER NOT NULL DEFAULT 0,
       deleted_by TEXT,
       deleted_at TEXT,
@@ -73,7 +73,7 @@ function createTables() {
       is_binary INTEGER NOT NULL DEFAULT 0,
       commit_message TEXT,
       uploaded_by TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
       FOREIGN KEY (file_id) REFERENCES files(id),
       FOREIGN KEY (uploaded_by) REFERENCES users(id)
     );
@@ -88,7 +88,7 @@ function createTables() {
       entity_id TEXT,
       entity_name TEXT,
       details TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
@@ -100,7 +100,7 @@ function createTables() {
       user_id TEXT NOT NULL,
       token_hash TEXT NOT NULL,
       expires_at TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
