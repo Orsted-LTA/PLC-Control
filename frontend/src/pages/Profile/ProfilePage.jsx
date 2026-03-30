@@ -52,8 +52,8 @@ export default function ProfilePage() {
       const res = await api.post('/users/me/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      profileForm.setFieldsValue({ avatarUrl: res.data.avatarUrl });
       await refreshUser();
+      profileForm.setFieldsValue({ avatarUrl: res.data.avatarUrl });
       message.success(t('avatarUploaded'));
       onSuccess(res.data);
     } catch (err) {

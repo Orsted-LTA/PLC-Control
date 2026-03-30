@@ -7,7 +7,13 @@ async function listFolders(req, res) {
 
   const lines = db.prepare(`
     SELECT f.*, u.display_name as creator_name,
-      (SELECT COUNT(*) FROM files fi WHERE fi.folder_id = f.id AND fi.is_deleted = 0) as file_count
+      (
+        SELECT COUNT(*) FROM files fi
+        WHERE fi.is_deleted = 0 AND (
+          fi.folder_id = f.id OR
+          fi.folder_id IN (SELECT id FROM folders WHERE parent_id = f.id AND is_deleted = 0)
+        )
+      ) as file_count
     FROM folders f
     LEFT JOIN users u ON f.created_by = u.id
     WHERE f.type = 'line' AND f.is_deleted = 0
