@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const { getDb } = require('../models/database');
 const { createUnifiedDiff } = require('../utils/diff');
+const { extractTextFromFile, isOfficeFile } = require('../utils/officeExtractor');
 const logger = require('../utils/logger');
 
 async function getVersion(req, res) {
@@ -72,8 +73,49 @@ async function diffVersions(req, res) {
     return res.status(400).json({ message: 'Versions must belong to the same file' });
   }
 
-  // For binary files, return metadata diff only
+  // For binary files, try Office text extraction first
   if (fromVersion.is_binary || toVersion.is_binary) {
+    const fromMime = fromVersion.mime_type || '';
+    const toMime = toVersion.mime_type || '';
+
+    if (isOfficeFile(fromMime) && isOfficeFile(toMime)) {
+      try {
+        const [fromText, toText] = await Promise.all([
+          extractTextFromFile(fromVersion.storage_path, fromMime),
+          extractTextFromFile(toVersion.storage_path, toMime),
+        ]);
+
+        if (fromText !== null && toText !== null) {
+          const diff = createUnifiedDiff(
+            fromText,
+            toText,
+            `v${fromVersion.version_number}`,
+            `v${toVersion.version_number}`
+          );
+          return res.json({
+            isBinary: false,
+            isOfficeExtracted: true,
+            from: {
+              id: fromVersion.id,
+              versionNumber: fromVersion.version_number,
+              size: fromVersion.size,
+              createdAt: fromVersion.created_at,
+            },
+            to: {
+              id: toVersion.id,
+              versionNumber: toVersion.version_number,
+              size: toVersion.size,
+              createdAt: toVersion.created_at,
+            },
+            diff,
+          });
+        }
+      } catch (err) {
+        logger.warn('Office text extraction failed, falling back to binary diff', { error: err.message });
+      }
+    }
+
+    // Fallback: pure binary metadata comparison
     return res.json({
       isBinary: true,
       from: {
