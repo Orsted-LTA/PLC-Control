@@ -70,12 +70,20 @@ app.use('/api/users', userRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/versions', versionRoutes);
 
+// Rate limiting for static file serving (SPA fallback)
+const staticLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Serve frontend static files in production
 const frontendDist = path.join(__dirname, '../frontend/dist');
 const fs = require('fs');
 if (fs.existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
-  app.get('*', (req, res) => {
+  app.get('*', staticLimiter, (req, res) => {
     if (!req.path.startsWith('/api')) {
       res.sendFile(path.join(frontendDist, 'index.html'));
     }
