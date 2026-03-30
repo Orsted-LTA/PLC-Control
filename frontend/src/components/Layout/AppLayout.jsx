@@ -11,6 +11,7 @@ import {
   MenuUnfoldOutlined,
   SettingOutlined,
   GlobalOutlined,
+  FolderOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,7 +30,10 @@ export default function AppLayout() {
     { key: '/', icon: <DashboardOutlined />, label: t('dashboard') },
     { key: '/files', icon: <FileOutlined />, label: t('files') },
     { key: '/history', icon: <HistoryOutlined />, label: t('history') },
-    ...(isAdmin ? [{ key: '/users', icon: <TeamOutlined />, label: t('users') }] : []),
+    ...(isAdmin ? [
+      { key: '/folders', icon: <FolderOutlined />, label: t('folders') },
+      { key: '/users', icon: <TeamOutlined />, label: t('users') },
+    ] : []),
   ];
 
   const userMenuItems = [

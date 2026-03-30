@@ -6,7 +6,7 @@ import {
 } from 'antd';
 import {
   ArrowLeftOutlined, UploadOutlined, DownloadOutlined, SwapOutlined,
-  RollbackOutlined, InboxOutlined, TagOutlined,
+  RollbackOutlined, InboxOutlined, TagOutlined, FolderOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -134,7 +134,11 @@ export default function FileDetailPage() {
       const formData = new FormData();
       formData.append('file', fileList[0].originFileObj);
       if (values.commitMessage) formData.append('commitMessage', values.commitMessage);
-      formData.append('filePath', file.path);
+      if (file.folderId) {
+        formData.append('folderId', file.folderId);
+      } else {
+        formData.append('filePath', file.path);
+      }
 
       await api.post('/files', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -237,7 +241,14 @@ export default function FileDetailPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <Title level={3} style={{ margin: 0 }}>{file.name}</Title>
-            <Text type="secondary">{file.path}</Text>
+            {file.folderPath ? (
+              <Text type="secondary">
+                <FolderOutlined style={{ marginRight: 4 }} />
+                {file.folderPath} / {file.name}
+              </Text>
+            ) : (
+              <Text type="secondary">{file.path}</Text>
+            )}
             {file.description && (
               <div style={{ marginTop: 8 }}>
                 <Text>{file.description}</Text>

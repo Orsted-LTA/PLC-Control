@@ -183,7 +183,7 @@ async function restoreVersion(req, res) {
 
   // Check if already latest version
   const latestVersion = db
-    .prepare('SELECT id, checksum FROM versions WHERE file_id = ? ORDER BY version_number DESC LIMIT 1')
+    .prepare('SELECT id, checksum, version_number FROM versions WHERE file_id = ? ORDER BY version_number DESC LIMIT 1')
     .get(file.id);
 
   if (latestVersion && latestVersion.checksum === version.checksum) {
