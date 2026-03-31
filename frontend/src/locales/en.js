@@ -78,7 +78,7 @@ export default {
   deleteFileConfirm: 'Are you sure you want to delete this file?',
   noFiles: 'No files yet',
   uploadHint: 'Click or drag file to upload',
-  uploadHint2: 'Supports all file types. Max 500MB.',
+  uploadHint2: 'Supports all file types. Max 5GB.',
   selectFile: 'Select File',
   fileUploaded: 'File uploaded successfully',
   fileDeleted: 'File deleted',

@@ -9,7 +9,7 @@ function errorHandler(err, req, res, next) {
   });
 
   if (err.code === 'LIMIT_FILE_SIZE') {
-    return res.status(413).json({ message: 'File too large' });
+    return res.status(413).json({ message: 'File too large. Maximum file size is 5GB.' });
   }
 
   const status = err.status || 500;

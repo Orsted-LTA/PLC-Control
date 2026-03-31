@@ -12,7 +12,7 @@ const {
 // Use OS temp dir for initial upload
 const upload = multer({
   dest: os.tmpdir(),
-  limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB max
+  limits: { fileSize: 5 * 1024 * 1024 * 1024 }, // 5 GB max
 });
 
 router.get('/stats', authenticateToken, getDashboardStats);
