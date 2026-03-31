@@ -3,9 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, Spin } from 'antd';
 import viVN from 'antd/locale/vi_VN';
 import enUS from 'antd/locale/en_US';
+import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/vi';
+import 'dayjs/locale/zh-cn';
 
 dayjs.extend(relativeTime);
 
@@ -48,9 +50,9 @@ function AppRoutes() {
   const { lang } = useLang();
 
   // Set dayjs locale
-  dayjs.locale(lang === 'vi' ? 'vi' : 'en');
+  dayjs.locale(lang === 'vi' ? 'vi' : lang === 'zh' ? 'zh-cn' : 'en');
 
-  const antdLocale = lang === 'vi' ? viVN : enUS;
+  const antdLocale = lang === 'vi' ? viVN : lang === 'zh' ? zhCN : enUS;
 
   return (
     <ConfigProvider

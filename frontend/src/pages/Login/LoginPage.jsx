@@ -126,6 +126,15 @@ export default function LoginPage() {
               >
                 English
               </Button>
+              <span style={{ color: '#d9d9d9' }}>|</span>
+              <Button
+                type={lang === 'zh' ? 'link' : 'text'}
+                size="small"
+                onClick={() => switchLang('zh')}
+                style={{ padding: '0 4px', fontWeight: lang === 'zh' ? 600 : 400 }}
+              >
+                中文
+              </Button>
             </Space>
           </div>
         </Card>
