@@ -4,7 +4,10 @@ import { ConfigProvider, Spin } from 'antd';
 import viVN from 'antd/locale/vi_VN';
 import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/vi';
+
+dayjs.extend(relativeTime);
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LangProvider, useLang } from './contexts/LangContext';

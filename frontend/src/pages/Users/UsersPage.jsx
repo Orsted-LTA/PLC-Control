@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card, Table, Button, Space, Typography, Tag, Modal, Form,
-  Input, Select, message, Popconfirm, Avatar, Badge,
+  Input, Select, message, Popconfirm, Avatar, Badge, Tooltip,
 } from 'antd';
-import { PlusOutlined, EditOutlined, StopOutlined, UserOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, StopOutlined, UserOutlined, CheckOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from '../../api';
 import { useLang } from '../../contexts/LangContext';
@@ -19,7 +19,7 @@ export default function UsersPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [form] = Form.useForm();
 
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const { user: currentUser } = useAuth();
 
   const fetchUsers = useCallback(async () => {
@@ -86,6 +86,16 @@ export default function UsersPage() {
     }
   };
 
+  const handleReactivate = async (id) => {
+    try {
+      await api.put(`/users/${id}`, { isActive: true });
+      message.success(t('userReactivated'));
+      fetchUsers();
+    } catch (err) {
+      message.error(err.response?.data?.message || t('error'));
+    }
+  };
+
   const roleLabel = (role) => {
     const map = { admin: t('admin'), user: t('userRole'), viewer: t('viewer') };
     return map[role] || role;
@@ -121,12 +131,19 @@ export default function UsersPage() {
     {
       title: t('status'),
       dataIndex: 'isActive',
-      render: (active) => (
-        <Badge
-          status={active ? 'success' : 'error'}
-          text={active ? t('active') : t('inactive')}
-        />
-      ),
+      render: (_, record) => {
+        if (!record.isActive) {
+          return <Badge status="error" text={t('lockedAccount')} />;
+        }
+        if (record.lastLogin) {
+          return (
+            <Tooltip title={dayjs(record.lastLogin).format('YYYY-MM-DD HH:mm')}>
+              <Badge status="default" text={`${t('active')} ${dayjs(record.lastLogin).locale(lang).fromNow()}`} />
+            </Tooltip>
+          );
+        }
+        return <Badge status="success" text={t('active')} />;
+      },
     },
     {
       title: t('createdAt'),
@@ -144,17 +161,30 @@ export default function UsersPage() {
           >
             {t('edit')}
           </Button>
-          {record.id !== currentUser?.id && record.isActive && (
-            <Popconfirm
-              title={t('confirmDeleteUser')}
-              onConfirm={() => handleDeactivate(record.id)}
-              okText={t('yes')}
-              cancelText={t('no')}
-            >
-              <Button size="small" danger icon={<StopOutlined />}>
-                {t('inactive')}
-              </Button>
-            </Popconfirm>
+          {record.id !== currentUser?.id && (
+            record.isActive ? (
+              <Popconfirm
+                title={t('confirmDeleteUser')}
+                onConfirm={() => handleDeactivate(record.id)}
+                okText={t('yes')}
+                cancelText={t('no')}
+              >
+                <Button size="small" danger icon={<StopOutlined />}>
+                  {t('inactive')}
+                </Button>
+              </Popconfirm>
+            ) : (
+              <Popconfirm
+                title={t('confirmReactivateUser')}
+                onConfirm={() => handleReactivate(record.id)}
+                okText={t('yes')}
+                cancelText={t('no')}
+              >
+                <Button size="small" type="primary" icon={<CheckOutlined />}>
+                  {t('reactivateUser')}
+                </Button>
+              </Popconfirm>
+            )
           )}
         </Space>
       ),
