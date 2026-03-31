@@ -18,6 +18,8 @@ const ACTION_COLORS = {
   create_folder: 'success',
   update_folder: 'processing',
   delete_folder: 'error',
+  lock_file: 'orange',
+  unlock_file: 'cyan',
   login: 'default',
   logout: 'default',
 };
@@ -55,6 +57,8 @@ export default function HistoryPage() {
       create_folder: t('actionCreateFolder'),
       update_folder: t('actionUpdateFolder'),
       delete_folder: t('actionDeleteFolder'),
+      lock_file: t('actionLockFile'),
+      unlock_file: t('actionUnlockFile'),
       login: t('actionLogin'),
       logout: t('actionLogout'),
     };

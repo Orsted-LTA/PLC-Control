@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react';
 import {
   Card, Typography, Tag, Button, Space, Modal, Upload, Form, Input,
   message, Popconfirm, Row, Col, Descriptions, Divider, Spin, Tabs,
-  Tooltip, Badge,
+  Tooltip, Badge, Alert,
 } from 'antd';
 import {
   ArrowLeftOutlined, UploadOutlined, DownloadOutlined, SwapOutlined,
   RollbackOutlined, InboxOutlined, TagOutlined, FolderOutlined,
+  LockOutlined, UnlockOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import api from '../../api';
+import { lockFile, unlockFile } from '../../api';
 import { useLang } from '../../contexts/LangContext';
 import { useAuth } from '../../contexts/AuthContext';
 import CommitGraph from '../../components/CommitGraph/CommitGraph';
@@ -31,7 +33,7 @@ export default function FileDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { t } = useLang();
-  const { canEdit } = useAuth();
+  const { canEdit, user, isAdmin } = useAuth();
 
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +45,10 @@ export default function FileDetailPage() {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [fileList, setFileList] = useState([]);
   const [form] = Form.useForm();
+
+  const [lockLoading, setLockLoading] = useState(false);
+  const [lockModal, setLockModal] = useState(false);
+  const [lockReason, setLockReason] = useState('');
 
   const fetchFile = async () => {
     setLoading(true);
@@ -161,6 +167,38 @@ export default function FileDetailPage() {
 
   if (!file) return null;
 
+  const isLockedByMe = file.lockedBy === user?.id;
+  const isLockedByOther = file.lockedBy && !isLockedByMe;
+  const canUnlock = isLockedByMe || isAdmin;
+
+  const handleLock = async () => {
+    setLockLoading(true);
+    try {
+      await lockFile(file.id, { reason: lockReason });
+      message.success(t('lockSuccess'));
+      setLockModal(false);
+      setLockReason('');
+      fetchFile();
+    } catch (err) {
+      message.error(err.response?.data?.message || t('error'));
+    } finally {
+      setLockLoading(false);
+    }
+  };
+
+  const handleUnlock = async () => {
+    setLockLoading(true);
+    try {
+      await unlockFile(file.id);
+      message.success(t('unlockSuccess'));
+      fetchFile();
+    } catch (err) {
+      message.error(err.response?.data?.message || t('error'));
+    } finally {
+      setLockLoading(false);
+    }
+  };
+
   const latestVersion = file.versions[0];
 
   const tabItems = [
@@ -236,11 +274,32 @@ export default function FileDetailPage() {
         </Button>
       </div>
 
+      {/* Lock status alert */}
+      {isLockedByOther && (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<LockOutlined />}
+          style={{ marginBottom: 16 }}
+          message={t('fileLocked')}
+          description={`${t('fileLockedBy')}: ${file.lockedByName || file.lockedBy}${file.lockedAt ? ` (${dayjs(file.lockedAt).format('YYYY-MM-DD HH:mm')})` : ''}${file.lockReason ? ` — ${file.lockReason}` : ''}`}
+        />
+      )}
+
       {/* File info */}
       <Card style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <Title level={3} style={{ margin: 0 }}>{file.name}</Title>
+            <Space align="center" style={{ marginBottom: 4 }}>
+              <Title level={3} style={{ margin: 0 }}>{file.name}</Title>
+              {file.lockedBy && (
+                <Tooltip title={isLockedByMe ? t('fileLocked') : `${t('fileLockedBy')}: ${file.lockedByName}`}>
+                  <Tag color={isLockedByMe ? 'orange' : 'red'} icon={<LockOutlined />}>
+                    {isLockedByMe ? t('fileLocked') : file.lockedByName}
+                  </Tag>
+                </Tooltip>
+              )}
+            </Space>
             {file.folderPath ? (
               <Text type="secondary">
                 <FolderOutlined style={{ marginRight: 4 }} />
@@ -255,15 +314,39 @@ export default function FileDetailPage() {
               </div>
             )}
           </div>
-          {canEdit && (
-            <Button
-              type="primary"
-              icon={<UploadOutlined />}
-              onClick={() => setUploadModal(true)}
-            >
-              {t('uploadNewVersion')}
-            </Button>
-          )}
+          <Space>
+            {canEdit && !file.lockedBy && (
+              <Button
+                icon={<LockOutlined />}
+                onClick={() => setLockModal(true)}
+              >
+                {t('lockFile')}
+              </Button>
+            )}
+            {canUnlock && file.lockedBy && (
+              <Popconfirm
+                title={t('confirmUnlock')}
+                onConfirm={handleUnlock}
+                okText={t('yes')}
+                cancelText={t('no')}
+              >
+                <Button icon={<UnlockOutlined />} loading={lockLoading}>
+                  {t('unlockFile')}
+                </Button>
+              </Popconfirm>
+            )}
+            {canEdit && (
+              <Button
+                type="primary"
+                icon={<UploadOutlined />}
+                onClick={() => setUploadModal(true)}
+                disabled={isLockedByOther}
+                title={isLockedByOther ? t('cannotUploadLocked') : undefined}
+              >
+                {t('uploadNewVersion')}
+              </Button>
+            )}
+          </Space>
         </div>
 
         <Divider style={{ margin: '16px 0' }} />
@@ -426,6 +509,24 @@ export default function FileDetailPage() {
             </Button>
           </div>
         </Form>
+      </Modal>
+
+      {/* Lock file modal */}
+      <Modal
+        title={t('lockFile')}
+        open={lockModal}
+        onCancel={() => { setLockModal(false); setLockReason(''); }}
+        onOk={handleLock}
+        confirmLoading={lockLoading}
+        okText={t('confirm')}
+        cancelText={t('cancel')}
+      >
+        <Input.TextArea
+          rows={3}
+          placeholder={t('lockReasonPlaceholder')}
+          value={lockReason}
+          onChange={(e) => setLockReason(e.target.value)}
+        />
       </Modal>
     </div>
   );

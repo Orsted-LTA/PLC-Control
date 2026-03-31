@@ -12,13 +12,17 @@ const config = require('./src/config');
 const { initDb } = require('./src/models/database');
 const logger = require('./src/utils/logger');
 const { scheduleCleanup } = require('./src/utils/cleanup');
+const { scheduleBackup } = require('./src/utils/backup');
+const { addClient, removeClient, broadcast } = require('./src/utils/notifications');
 const errorHandler = require('./src/middleware/errorHandler');
+const { authenticateToken } = require('./src/middleware/auth');
 
 const authRoutes = require('./src/routes/auth');
 const userRoutes = require('./src/routes/users');
 const fileRoutes = require('./src/routes/files');
 const versionRoutes = require('./src/routes/versions');
 const folderRoutes = require('./src/routes/folders');
+const adminRoutes = require('./src/routes/admin');
 
 // Initialize database
 initDb();
@@ -72,6 +76,35 @@ app.use('/api/users', userRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/versions', versionRoutes);
 app.use('/api/folders', folderRoutes);
+app.use('/api/admin', adminRoutes);
+
+// SSE notifications endpoint
+app.get('/api/notifications/stream', authenticateToken, (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  // Send initial heartbeat
+  res.write(': connected\n\n');
+
+  addClient(res);
+
+  // Heartbeat every 30 seconds to keep connection alive
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(': heartbeat\n\n');
+    } catch {
+      clearInterval(heartbeat);
+    }
+  }, 30000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    removeClient(res);
+  });
+});
 
 // Serve uploaded avatars
 const avatarsDir = path.join(config.dataDir, 'avatars');
@@ -109,6 +142,9 @@ app.use(errorHandler);
 
 // Schedule cleanup
 scheduleCleanup();
+
+// Schedule backup
+scheduleBackup();
 
 // Start server
 app.listen(config.port, config.host, () => {

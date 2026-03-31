@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Typography, Spin, Space, Avatar } from 'antd';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Row, Col, Card, Statistic, Table, Tag, Typography, Spin, Space, Avatar, Button, Popconfirm, message } from 'antd';
 import {
   FileOutlined, HistoryOutlined, TeamOutlined,
-  DatabaseOutlined, UserOutlined,
+  DatabaseOutlined, UserOutlined, CloudUploadOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import api from '../../api';
+import { triggerBackup, listBackups, deleteBackup } from '../../api';
 import { useLang } from '../../contexts/LangContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 const { Title, Text } = Typography;
 
@@ -22,6 +24,8 @@ const ACTION_COLORS = {
   create_folder: 'success',
   update_folder: 'processing',
   delete_folder: 'error',
+  lock_file: 'orange',
+  unlock_file: 'cyan',
   login: 'default',
   logout: 'default',
 };
@@ -36,7 +40,11 @@ function formatBytes(bytes) {
 export default function DashboardPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [backups, setBackups] = useState([]);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [backupsLoading, setBackupsLoading] = useState(false);
   const { t } = useLang();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,6 +52,44 @@ export default function DashboardPage() {
       .then(res => setData(res.data))
       .finally(() => setLoading(false));
   }, []);
+
+  const fetchBackups = useCallback(async () => {
+    if (!isAdmin) return;
+    setBackupsLoading(true);
+    try {
+      const res = await listBackups();
+      setBackups(res.data.data || []);
+    } catch {
+      // silently ignore
+    } finally {
+      setBackupsLoading(false);
+    }
+  }, [isAdmin]);
+
+  useEffect(() => { fetchBackups(); }, [fetchBackups]);
+
+  const handleBackupNow = async () => {
+    setBackupLoading(true);
+    try {
+      await triggerBackup();
+      message.success(t('backupSuccess'));
+      fetchBackups();
+    } catch (err) {
+      message.error(err.response?.data?.message || t('error'));
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleDeleteBackup = async (name) => {
+    try {
+      await deleteBackup(name);
+      message.success(t('backupDeleted'));
+      fetchBackups();
+    } catch (err) {
+      message.error(err.response?.data?.message || t('error'));
+    }
+  };
 
   const actionLabel = (action) => {
     const map = {
@@ -57,6 +103,8 @@ export default function DashboardPage() {
       create_folder: t('actionCreateFolder'),
       update_folder: t('actionUpdateFolder'),
       delete_folder: t('actionDeleteFolder'),
+      lock_file: t('actionLockFile'),
+      unlock_file: t('actionUnlockFile'),
       login: t('actionLogin'),
       logout: t('actionLogout'),
     };
@@ -141,7 +189,7 @@ export default function DashboardPage() {
       </Row>
 
       {/* Recent Activity */}
-      <Card title={t('recentActivity')}>
+      <Card title={t('recentActivity')} style={{ marginBottom: isAdmin ? 24 : 0 }}>
         <Table
           dataSource={data?.recentActivity || []}
           rowKey="id"
@@ -179,6 +227,64 @@ export default function DashboardPage() {
           ]}
         />
       </Card>
+
+      {/* Backup section - admin only */}
+      {isAdmin && (
+        <Card
+          title={t('backup')}
+          extra={
+            <Button
+              type="primary"
+              icon={<CloudUploadOutlined />}
+              loading={backupLoading}
+              onClick={handleBackupNow}
+            >
+              {t('backupNow')}
+            </Button>
+          }
+        >
+          <Table
+            dataSource={backups}
+            rowKey="name"
+            loading={backupsLoading}
+            pagination={false}
+            size="small"
+            locale={{ emptyText: t('noBackups') }}
+            columns={[
+              {
+                title: t('backupName'),
+                dataIndex: 'name',
+              },
+              {
+                title: t('backupDate'),
+                dataIndex: 'createdAt',
+                render: (v) => dayjs(v).format('YYYY-MM-DD HH:mm:ss'),
+              },
+              {
+                title: t('backupSize'),
+                dataIndex: 'size',
+                render: (v) => formatBytes(v),
+              },
+              {
+                title: t('actions'),
+                key: 'actions',
+                render: (_, record) => (
+                  <Popconfirm
+                    title={t('backupDeleteConfirm')}
+                    onConfirm={() => handleDeleteBackup(record.name)}
+                    okText={t('yes')}
+                    cancelText={t('no')}
+                  >
+                    <Button size="small" danger icon={<DeleteOutlined />}>
+                      {t('delete')}
+                    </Button>
+                  </Popconfirm>
+                ),
+              },
+            ]}
+          />
+        </Card>
+      )}
     </div>
   );
 }

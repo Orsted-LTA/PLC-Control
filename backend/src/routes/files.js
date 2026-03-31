@@ -6,7 +6,7 @@ const os = require('os');
 const { authenticateToken } = require('../middleware/auth');
 const {
   listFiles, uploadFile, getFile, deleteFile,
-  getActivityLog, getDashboardStats,
+  getActivityLog, getDashboardStats, lockFile, unlockFile,
 } = require('../controllers/fileController');
 
 // Use OS temp dir for initial upload
@@ -21,5 +21,7 @@ router.get('/', authenticateToken, listFiles);
 router.post('/', authenticateToken, upload.single('file'), uploadFile);
 router.get('/:id', authenticateToken, getFile);
 router.delete('/:id', authenticateToken, deleteFile);
+router.post('/:id/lock', authenticateToken, lockFile);
+router.post('/:id/unlock', authenticateToken, unlockFile);
 
 module.exports = router;

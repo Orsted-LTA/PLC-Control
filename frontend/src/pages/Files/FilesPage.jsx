@@ -5,7 +5,7 @@ import {
 } from 'antd';
 import {
   UploadOutlined, PlusOutlined, SearchOutlined,
-  DeleteOutlined, EyeOutlined, InboxOutlined, FolderOutlined,
+  DeleteOutlined, EyeOutlined, InboxOutlined, FolderOutlined, LockOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -138,9 +138,16 @@ export default function FilesPage() {
       title: t('fileName'),
       dataIndex: 'name',
       render: (name, record) => (
-        <Button type="link" style={{ padding: 0 }} onClick={() => navigate(`/files/${record.id}`)}>
-          {name}
-        </Button>
+        <Space size={4}>
+          <Button type="link" style={{ padding: 0 }} onClick={() => navigate(`/files/${record.id}`)}>
+            {name}
+          </Button>
+          {record.lockedBy && (
+            <Tooltip title={`${t('fileLockedBy')}: ${record.lockedByName || record.lockedBy}`}>
+              <LockOutlined style={{ color: '#faad14', fontSize: 13 }} />
+            </Tooltip>
+          )}
+        </Space>
       ),
     },
     {

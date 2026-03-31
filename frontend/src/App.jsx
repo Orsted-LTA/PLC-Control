@@ -8,6 +8,7 @@ import 'dayjs/locale/vi';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LangProvider, useLang } from './contexts/LangContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 import AppLayout from './components/Layout/AppLayout';
 import LoginPage from './pages/Login/LoginPage';
@@ -102,7 +103,9 @@ export default function App() {
   return (
     <LangProvider>
       <AuthProvider>
-        <AppRoutes />
+        <NotificationProvider>
+          <AppRoutes />
+        </NotificationProvider>
       </AuthProvider>
     </LangProvider>
   );

@@ -173,6 +173,7 @@ async function restoreVersion(req, res) {
   const { v4: uuidv4 } = require('uuid');
   const config = require('../config');
   const { computeChecksum, detectBinary } = require('../utils/fileUtils');
+  const { broadcast } = require('../utils/notifications');
 
   const db = getDb();
   const version = db.prepare('SELECT * FROM versions WHERE id = ?').get(req.params.id);
@@ -220,6 +221,14 @@ async function restoreVersion(req, res) {
     uuidv4(), req.user.id, file.id, file.name,
     JSON.stringify({ restoredFrom: version.version_number, newVersion: newVersionNumber })
   );
+
+  broadcast({
+    type: 'version_restored',
+    fileId: file.id,
+    fileName: file.name,
+    userName: req.user.display_name,
+    timestamp: new Date().toISOString(),
+  });
 
   res.json({
     message: `Restored to v${version.version_number} as new v${newVersionNumber}`,

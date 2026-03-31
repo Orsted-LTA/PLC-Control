@@ -26,4 +26,7 @@ module.exports = {
   corsOrigins: process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim())
     : null,
+  backupDir: process.env.BACKUP_DIR || './data/backups',
+  backupSchedule: process.env.BACKUP_SCHEDULE || '0 3 * * *',
+  backupRetention: parseInt(process.env.BACKUP_RETENTION) || 7,
 };
