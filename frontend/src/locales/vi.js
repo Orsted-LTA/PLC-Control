@@ -78,7 +78,7 @@ export default {
   deleteFileConfirm: 'Bạn có chắc muốn xóa file này?',
   noFiles: 'Chưa có file nào',
   uploadHint: 'Kéo thả hoặc click để chọn file',
-  uploadHint2: 'Hỗ trợ tất cả loại file. Tối đa 500MB.',
+  uploadHint2: 'Hỗ trợ tất cả loại file. Tối đa 5GB.',
   selectFile: 'Chọn file',
   fileUploaded: 'Tải file lên thành công',
   fileDeleted: 'Đã xóa file',
