@@ -1,21 +1,36 @@
 const logger = require('./logger');
 
-const clients = new Set();
+// Map from res -> userId
+const clients = new Map();
+// Map from userId -> timestamp (ms) of last SSE disconnect
+const lastSeen = new Map();
 
-function addClient(res) {
-  clients.add(res);
-  logger.info('SSE client connected', { clientCount: clients.size });
+function addClient(res, userId) {
+  clients.set(res, userId);
+  logger.info('SSE client connected', { userId, clientCount: clients.size });
 }
 
-function removeClient(res) {
+function removeClient(res, userId) {
   clients.delete(res);
-  logger.info('SSE client disconnected', { clientCount: clients.size });
+  // Only mark as lastSeen if the user has no remaining SSE connections
+  if (userId && ![...clients.values()].includes(userId)) {
+    lastSeen.set(userId, Date.now());
+  }
+  logger.info('SSE client disconnected', { userId, clientCount: clients.size });
+}
+
+function getOnlineUserIds() {
+  return new Set(clients.values());
+}
+
+function getLastSeen(userId) {
+  return lastSeen.get(userId) || null;
 }
 
 function broadcast(event) {
   const data = JSON.stringify(event);
   logger.info('SSE broadcast', { type: event.type, clientCount: clients.size });
-  for (const client of clients) {
+  for (const [client] of clients) {
     try {
       client.write(`data: ${data}\n\n`);
     } catch {
@@ -24,4 +39,4 @@ function broadcast(event) {
   }
 }
 
-module.exports = { addClient, removeClient, broadcast };
+module.exports = { addClient, removeClient, broadcast, getOnlineUserIds, getLastSeen };
