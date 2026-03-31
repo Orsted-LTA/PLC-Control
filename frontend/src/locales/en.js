@@ -207,6 +207,8 @@ export default {
   backupInfo: 'Backup Information',
   backupFiles: 'Files in Backup',
   backupFileCount: 'File Count',
+  incompatibleBackupTitle: 'Backup incompatible with current version',
+  incompatibleBackupDesc: 'This backup was created with an older version of the app that did not include the files table. File content cannot be viewed.',
   existsInCurrent: 'Status',
   existsYes: 'Exists in system',
   existsDeleted: 'Deleted',

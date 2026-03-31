@@ -30,7 +30,10 @@ initDb();
 const app = express();
 
 // Security headers
-app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false,
+}));
 
 // CORS
 const corsOptions = {
