@@ -313,6 +313,22 @@ async function deleteFile(req, res) {
     return res.status(403).json({ message: 'Not authorized to delete this file' });
   }
 
+  // Delete physical version files from disk
+  const versions = db.prepare('SELECT storage_path FROM versions WHERE file_id = ?').all(file.id);
+  for (const v of versions) {
+    try { fs.unlinkSync(v.storage_path); } catch (err) {
+      logger.warn('Failed to delete version file', { path: v.storage_path, error: err.message });
+    }
+  }
+  // Remove the file's storage directory
+  const storageDir = path.join(config.uploadDir, file.id);
+  try { fs.rmSync(storageDir, { recursive: true }); } catch (err) {
+    logger.warn('Failed to remove storage directory', { dir: storageDir, error: err.message });
+  }
+
+  // Delete version records from database
+  db.prepare('DELETE FROM versions WHERE file_id = ?').run(file.id);
+
   db.prepare(`
     UPDATE files SET is_deleted = 1, deleted_by = ?, deleted_at = datetime('now') || 'Z', updated_at = datetime('now') || 'Z'
     WHERE id = ?
@@ -386,9 +402,13 @@ async function getDashboardStats(req, res) {
 
   const stats = {
     totalFiles: db.prepare('SELECT COUNT(*) as cnt FROM files WHERE is_deleted = 0').get().cnt,
-    totalVersions: db.prepare('SELECT COUNT(*) as cnt FROM versions').get().cnt,
+    totalVersions: db.prepare(
+      'SELECT COUNT(*) as cnt FROM versions v INNER JOIN files f ON v.file_id = f.id WHERE f.is_deleted = 0'
+    ).get().cnt,
     totalUsers: db.prepare('SELECT COUNT(*) as cnt FROM users WHERE is_active = 1').get().cnt,
-    totalSize: db.prepare('SELECT SUM(size) as total FROM versions').get().total || 0,
+    totalSize: db.prepare(
+      'SELECT COALESCE(SUM(v.size), 0) as total FROM versions v INNER JOIN files f ON v.file_id = f.id WHERE f.is_deleted = 0'
+    ).get().total || 0,
   };
 
   const recentActivity = db.prepare(`
