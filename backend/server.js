@@ -33,6 +33,7 @@ const app = express();
 app.use(helmet({
   crossOriginResourcePolicy: false,
   crossOriginOpenerPolicy: false,
+  contentSecurityPolicy: false,
 }));
 
 // CORS
