@@ -131,6 +131,14 @@ function createTables() {
   if (!hasFolderId) {
     db.exec('ALTER TABLE files ADD COLUMN folder_id TEXT REFERENCES folders(id)');
   }
+
+  // Safe migration: add lock columns to files
+  const hasLockedBy = fileColumns.some(col => col.name === 'locked_by');
+  if (!hasLockedBy) {
+    db.exec('ALTER TABLE files ADD COLUMN locked_by TEXT DEFAULT NULL');
+    db.exec('ALTER TABLE files ADD COLUMN locked_at TEXT DEFAULT NULL');
+    db.exec('ALTER TABLE files ADD COLUMN lock_reason TEXT DEFAULT NULL');
+  }
 }
 
 function seedAdmin() {

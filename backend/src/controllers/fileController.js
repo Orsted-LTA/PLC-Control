@@ -6,6 +6,7 @@ const config = require('../config');
 const { computeChecksum, detectBinary } = require('../utils/fileUtils');
 const logger = require('../utils/logger');
 const { runCleanup } = require('../utils/cleanup');
+const { broadcast } = require('../utils/notifications');
 
 async function listFiles(req, res) {
   const db = getDb();
@@ -64,6 +65,9 @@ async function listFiles(req, res) {
         currentSize: f.current_size,
         createdBy: f.creator_name,
         createdAt: f.created_at,
+        lockedBy: f.locked_by || null,
+        lockedAt: f.locked_at || null,
+        lockReason: f.lock_reason || null,
       };
     }),
     total,
@@ -103,6 +107,18 @@ async function uploadFile(req, res) {
   let file = db
     .prepare("SELECT * FROM files WHERE name = ? AND path = ? AND is_deleted = 0")
     .get(originalName, normalizedPath);
+
+  // Check lock status for existing file
+  if (file && file.locked_by && file.locked_by !== req.user.id) {
+    try { fs.unlinkSync(req.file.path); } catch {}
+    const locker = db.prepare('SELECT display_name FROM users WHERE id = ?').get(file.locked_by);
+    return res.status(423).json({
+      message: 'File is locked by another user',
+      lockedBy: locker?.display_name || file.locked_by,
+      lockedAt: file.locked_at,
+      lockReason: file.lock_reason,
+    });
+  }
 
   let isNewFile = false;
   if (!file) {
@@ -187,6 +203,24 @@ async function uploadFile(req, res) {
 
   logger.info('File uploaded', { fileId: file.id, fileName: originalName, version: versionNumber, user: req.user.id });
 
+  // Auto-unlock if file was locked by the uploader
+  if (!isNewFile && file.locked_by === req.user.id) {
+    db.prepare("UPDATE files SET locked_by = NULL, locked_at = NULL, lock_reason = NULL WHERE id = ?").run(file.id);
+    db.prepare(`
+      INSERT INTO activity_log (id, user_id, action, entity_type, entity_id, entity_name)
+      VALUES (?, ?, 'unlock_file', 'file', ?, ?)
+    `).run(uuidv4(), req.user.id, file.id, originalName);
+  }
+
+  // Broadcast notification
+  broadcast({
+    type: isNewFile ? 'file_added' : 'file_updated',
+    fileId: file.id,
+    fileName: originalName,
+    userName: req.user.display_name,
+    timestamp: new Date().toISOString(),
+  });
+
   // Run cleanup asynchronously
   setImmediate(() => {
     try { runCleanup(); } catch (err) { logger.warn('Post-upload cleanup failed', { error: err.message }); }
@@ -230,6 +264,13 @@ async function getFile(req, res) {
       : file.folder_name;
   }
 
+  // Fetch locker display name if locked
+  let lockedByName = null;
+  if (file.locked_by) {
+    const locker = db.prepare('SELECT display_name FROM users WHERE id = ?').get(file.locked_by);
+    lockedByName = locker?.display_name || null;
+  }
+
   res.json({
     id: file.id,
     name: file.name,
@@ -243,6 +284,10 @@ async function getFile(req, res) {
     createdBy: file.creator_name,
     createdAt: file.created_at,
     updatedAt: file.updated_at,
+    lockedBy: file.locked_by || null,
+    lockedByName,
+    lockedAt: file.locked_at || null,
+    lockReason: file.lock_reason || null,
     versions: versions.map(v => ({
       id: v.id,
       versionNumber: v.version_number,
@@ -279,6 +324,16 @@ async function deleteFile(req, res) {
   `).run(uuidv4(), req.user.id, file.id, file.name);
 
   logger.info('File deleted', { fileId: file.id, fileName: file.name, userId: req.user.id });
+
+  // Broadcast notification
+  broadcast({
+    type: 'file_deleted',
+    fileId: file.id,
+    fileName: file.name,
+    userName: req.user.display_name,
+    timestamp: new Date().toISOString(),
+  });
+
   res.json({ message: 'File deleted' });
 }
 
@@ -357,4 +412,77 @@ async function getDashboardStats(req, res) {
   });
 }
 
-module.exports = { listFiles, uploadFile, getFile, deleteFile, getActivityLog, getDashboardStats };
+module.exports = { listFiles, uploadFile, getFile, deleteFile, getActivityLog, getDashboardStats, lockFile, unlockFile };
+
+async function lockFile(req, res) {
+  const db = getDb();
+  const file = db.prepare('SELECT * FROM files WHERE id = ? AND is_deleted = 0').get(req.params.id);
+  if (!file) return res.status(404).json({ message: 'File not found' });
+
+  // Check if already locked by someone else (admin can override)
+  if (file.locked_by && file.locked_by !== req.user.id && req.user.role !== 'admin') {
+    const locker = db.prepare('SELECT display_name FROM users WHERE id = ?').get(file.locked_by);
+    return res.status(423).json({
+      message: 'File is already locked by another user',
+      lockedBy: locker?.display_name || file.locked_by,
+      lockedAt: file.locked_at,
+      lockReason: file.lock_reason,
+    });
+  }
+
+  const { reason } = req.body;
+  db.prepare(`
+    UPDATE files SET locked_by = ?, locked_at = datetime('now') || 'Z', lock_reason = ? WHERE id = ?
+  `).run(req.user.id, reason || null, file.id);
+
+  db.prepare(`
+    INSERT INTO activity_log (id, user_id, action, entity_type, entity_id, entity_name, details)
+    VALUES (?, ?, 'lock_file', 'file', ?, ?, ?)
+  `).run(uuidv4(), req.user.id, file.id, file.name, JSON.stringify({ reason: reason || null }));
+
+  broadcast({
+    type: 'file_locked',
+    fileId: file.id,
+    fileName: file.name,
+    userName: req.user.display_name,
+    timestamp: new Date().toISOString(),
+  });
+
+  logger.info('File locked', { fileId: file.id, userId: req.user.id });
+  res.json({ message: 'File locked successfully' });
+}
+
+async function unlockFile(req, res) {
+  const db = getDb();
+  const file = db.prepare('SELECT * FROM files WHERE id = ? AND is_deleted = 0').get(req.params.id);
+  if (!file) return res.status(404).json({ message: 'File not found' });
+
+  if (!file.locked_by) {
+    return res.status(400).json({ message: 'File is not locked' });
+  }
+
+  // Only the locker or admin can unlock
+  if (file.locked_by !== req.user.id && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Only the locker or an admin can unlock this file' });
+  }
+
+  db.prepare(`
+    UPDATE files SET locked_by = NULL, locked_at = NULL, lock_reason = NULL WHERE id = ?
+  `).run(file.id);
+
+  db.prepare(`
+    INSERT INTO activity_log (id, user_id, action, entity_type, entity_id, entity_name)
+    VALUES (?, ?, 'unlock_file', 'file', ?, ?)
+  `).run(uuidv4(), req.user.id, file.id, file.name);
+
+  broadcast({
+    type: 'file_unlocked',
+    fileId: file.id,
+    fileName: file.name,
+    userName: req.user.display_name,
+    timestamp: new Date().toISOString(),
+  });
+
+  logger.info('File unlocked', { fileId: file.id, userId: req.user.id });
+  res.json({ message: 'File unlocked successfully' });
+}

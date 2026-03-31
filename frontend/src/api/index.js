@@ -58,3 +58,12 @@ export const getFolders = () => api.get('/folders');
 export const createFolder = (data) => api.post('/folders', data);
 export const updateFolder = (id, data) => api.put(`/folders/${id}`, data);
 export const deleteFolder = (id) => api.delete(`/folders/${id}`);
+
+// File lock
+export const lockFile = (id, data) => api.post(`/files/${id}/lock`, data);
+export const unlockFile = (id) => api.post(`/files/${id}/unlock`);
+
+// Admin backup
+export const triggerBackup = () => api.post('/admin/backup');
+export const listBackups = () => api.get('/admin/backups');
+export const deleteBackup = (name) => api.delete(`/admin/backups/${encodeURIComponent(name)}`);

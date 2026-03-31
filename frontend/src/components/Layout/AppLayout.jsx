@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Button, Space, Typography, Switch } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Button, Space, Typography, Switch, Badge, Popover, List, Empty, Tag } from 'antd';
 import {
   DashboardOutlined,
   FileOutlined,
@@ -12,10 +12,14 @@ import {
   SettingOutlined,
   GlobalOutlined,
   FolderOutlined,
+  BellOutlined,
+  ClearOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLang } from '../../contexts/LangContext';
+import { useNotifications } from '../../contexts/NotificationContext';
+import dayjs from 'dayjs';
 
 const { Header, Sider, Content } = Layout;
 
@@ -23,6 +27,7 @@ export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout, isAdmin } = useAuth();
   const { t, lang, switchLang } = useLang();
+  const { notifications, unreadCount, markAllRead, clearNotifications } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -140,6 +145,56 @@ export default function AppLayout() {
                 size="small"
               />
             </Space>
+
+            <Popover
+              trigger="click"
+              placement="bottomRight"
+              onOpenChange={(open) => { if (open) markAllRead(); }}
+              content={
+                <div style={{ width: 320 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontWeight: 600 }}>{t('notifications')}</span>
+                    {notifications.length > 0 && (
+                      <Button
+                        size="small"
+                        type="text"
+                        icon={<ClearOutlined />}
+                        onClick={clearNotifications}
+                      >
+                        {t('clearNotifications')}
+                      </Button>
+                    )}
+                  </div>
+                  {notifications.length === 0 ? (
+                    <Empty description={t('noNotifications')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                  ) : (
+                    <List
+                      size="small"
+                      dataSource={notifications.slice(0, 20)}
+                      style={{ maxHeight: 360, overflow: 'auto' }}
+                      renderItem={(item) => (
+                        <List.Item style={{ padding: '6px 0' }}>
+                          <div>
+                            <div style={{ fontSize: 13 }}>{item.message}</div>
+                            <div style={{ fontSize: 11, color: '#8c8c8c' }}>
+                              {dayjs(item.timestamp).format('HH:mm DD/MM')}
+                            </div>
+                          </div>
+                        </List.Item>
+                      )}
+                    />
+                  )}
+                </div>
+              }
+            >
+              <Badge count={unreadCount} size="small" offset={[-2, 2]}>
+                <Button
+                  type="text"
+                  icon={<BellOutlined style={{ fontSize: 18 }} />}
+                  style={{ padding: '0 8px' }}
+                />
+              </Badge>
+            </Popover>
 
             <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
               <Space style={{ cursor: 'pointer', padding: '0 8px' }}>
