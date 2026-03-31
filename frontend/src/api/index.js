@@ -70,4 +70,8 @@ export const deleteBackup = (name) => api.delete(`/admin/backups/${encodeURIComp
 export const getBackupFiles = (name) => api.get(`/admin/backups/${encodeURIComponent(name)}/files`);
 export const restoreBackupFile = (name, data) => api.post(`/admin/backups/${encodeURIComponent(name)}/restore-file`, data);
 export const downloadBackupFile = (name, fileId, versionId) =>
-  api.post(`/admin/backups/${encodeURIComponent(name)}/download-file`, { fileId, versionId }, { responseType: 'blob' });
+  api.post(
+    `/admin/backups/${encodeURIComponent(name)}/download-file`,
+    { fileId, versionId },
+    { responseType: 'blob', timeout: 0 }
+  );

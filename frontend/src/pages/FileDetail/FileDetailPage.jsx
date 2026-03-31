@@ -100,6 +100,7 @@ export default function FileDetailPage() {
     try {
       const res = await api.get(`/versions/${versionId}/download`, {
         responseType: 'blob',
+        timeout: 0,
       });
       const disposition = res.headers['content-disposition'];
       let fileName = 'download';
