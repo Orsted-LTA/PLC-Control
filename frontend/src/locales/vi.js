@@ -207,6 +207,8 @@ export default {
   backupInfo: 'Thông tin backup',
   backupFiles: 'Danh sách file trong backup',
   backupFileCount: 'Số file',
+  incompatibleBackupTitle: 'Backup không tương thích với phiên bản hiện tại',
+  incompatibleBackupDesc: 'Backup này được tạo từ phiên bản cũ của ứng dụng, chưa có bảng lưu trữ file. Không thể xem nội dung file.',
   existsInCurrent: 'Trạng thái',
   existsYes: 'Có trong hệ thống',
   existsDeleted: 'Đã bị xóa',

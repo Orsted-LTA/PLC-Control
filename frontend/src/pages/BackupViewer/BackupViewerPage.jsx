@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Button, Card, Table, Tag, Typography, Spin, Space, message,
-  Modal, Form, Input, Tooltip,
+  Modal, Form, Input, Tooltip, Alert,
 } from 'antd';
 import {
   WarningOutlined, ArrowLeftOutlined, DownloadOutlined, RollbackOutlined,
@@ -34,6 +34,7 @@ export default function BackupViewerPage() {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedRows, setExpandedRows] = useState([]);
+  const [incompatibleBackup, setIncompatibleBackup] = useState(false);
 
   // Restore modal state
   const [restoreModal, setRestoreModal] = useState(false);
@@ -48,7 +49,11 @@ export default function BackupViewerPage() {
       const res = await getBackupFiles(name);
       setFiles(res.data.files || []);
     } catch (err) {
-      message.error(err.response?.data?.message || t('error'));
+      if (err.response?.status === 422) {
+        setIncompatibleBackup(true);
+      } else {
+        message.error(err.response?.data?.message || t('error'));
+      }
     } finally {
       setLoading(false);
     }
@@ -309,6 +314,14 @@ export default function BackupViewerPage() {
             <div style={{ textAlign: 'center', padding: 60 }}>
               <Spin size="large" />
             </div>
+          ) : incompatibleBackup ? (
+            <Alert
+              type="warning"
+              showIcon
+              message={t('incompatibleBackupTitle')}
+              description={t('incompatibleBackupDesc')}
+              style={{ margin: '16px 0' }}
+            />
           ) : (
             <Table
               dataSource={files}
