@@ -201,6 +201,26 @@ export default {
   noBackups: 'No backups yet',
   backupCreating: 'Creating backup...',
 
+  // Backup Viewer
+  backupViewer: 'View Backup Contents',
+  backupViewerWarning: 'BACKUP VIEW MODE - Read-only data from backup',
+  backupInfo: 'Backup Information',
+  backupFiles: 'Files in Backup',
+  backupFileCount: 'File Count',
+  existsInCurrent: 'Status',
+  existsYes: 'Exists in system',
+  existsDeleted: 'Deleted',
+  existsNo: 'Not found',
+  restoreFromBackup: 'Restore from Backup',
+  restoreWarning: 'You are restoring file "{fileName}" from backup "{backupName}" to the main system. It will be created as a new version.',
+  restoreCannotUndo: 'This action CANNOT be undone.',
+  enterAdminPassword: 'Enter admin password to confirm',
+  adminPasswordRequired: 'Admin password is required',
+  invalidAdminPassword: 'Invalid admin password',
+  restoreFromBackupSuccess: 'File restored from backup successfully',
+  backToBackups: '← Back to backups',
+  downloadFromBackup: 'Download from backup',
+
   // Notifications
   notifications: 'Notifications',
   newFileUploaded: 'New file uploaded',

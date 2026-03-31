@@ -201,6 +201,26 @@ export default {
   noBackups: 'Chưa có backup nào',
   backupCreating: 'Đang tạo backup...',
 
+  // Backup Viewer
+  backupViewer: 'Xem nội dung backup',
+  backupViewerWarning: 'CHẾ ĐỘ XEM BACKUP - Dữ liệu chỉ đọc từ bản sao lưu',
+  backupInfo: 'Thông tin backup',
+  backupFiles: 'Danh sách file trong backup',
+  backupFileCount: 'Số file',
+  existsInCurrent: 'Trạng thái',
+  existsYes: 'Có trong hệ thống',
+  existsDeleted: 'Đã bị xóa',
+  existsNo: 'Không tồn tại',
+  restoreFromBackup: 'Khôi phục từ backup',
+  restoreWarning: 'Bạn đang khôi phục file "{fileName}" từ backup "{backupName}" vào hệ thống chính. File sẽ được tạo thành phiên bản mới.',
+  restoreCannotUndo: 'Hành động này KHÔNG THỂ hoàn tác.',
+  enterAdminPassword: 'Nhập mật khẩu admin để xác nhận',
+  adminPasswordRequired: 'Vui lòng nhập mật khẩu admin',
+  invalidAdminPassword: 'Mật khẩu admin không đúng',
+  restoreFromBackupSuccess: 'Khôi phục file từ backup thành công',
+  backToBackups: '← Quay lại danh sách backup',
+  downloadFromBackup: 'Tải từ backup',
+
   // Notifications
   notifications: 'Thông báo',
   newFileUploaded: 'File mới được tải lên',

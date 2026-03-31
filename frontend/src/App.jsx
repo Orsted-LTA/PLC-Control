@@ -19,6 +19,7 @@ import HistoryPage from './pages/History/HistoryPage';
 import UsersPage from './pages/Users/UsersPage';
 import ProfilePage from './pages/Profile/ProfilePage';
 import FoldersPage from './pages/Folders/FoldersPage';
+import BackupViewerPage from './pages/BackupViewer/BackupViewerPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -92,6 +93,16 @@ function AppRoutes() {
             />
             <Route path="profile" element={<ProfilePage />} />
           </Route>
+          <Route
+            path="backups/:name"
+            element={
+              <ProtectedRoute>
+                <AdminRoute>
+                  <BackupViewerPage />
+                </AdminRoute>
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

@@ -67,3 +67,7 @@ export const unlockFile = (id) => api.post(`/files/${id}/unlock`);
 export const triggerBackup = () => api.post('/admin/backup');
 export const listBackups = () => api.get('/admin/backups');
 export const deleteBackup = (name) => api.delete(`/admin/backups/${encodeURIComponent(name)}`);
+export const getBackupFiles = (name) => api.get(`/admin/backups/${encodeURIComponent(name)}/files`);
+export const restoreBackupFile = (name, data) => api.post(`/admin/backups/${encodeURIComponent(name)}/restore-file`, data);
+export const downloadBackupFile = (name, fileId, versionId) =>
+  api.post(`/admin/backups/${encodeURIComponent(name)}/download-file`, { fileId, versionId }, { responseType: 'blob' });
