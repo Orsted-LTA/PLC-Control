@@ -203,7 +203,8 @@ async function uploadAvatar(req, res) {
   }
 
   try {
-    fs.renameSync(req.file.path, destPath);
+    fs.copyFileSync(req.file.path, destPath);
+    try { fs.unlinkSync(req.file.path); } catch {}
   } catch (err) {
     logger.error('Failed to save avatar file', { error: err.message });
     return res.status(500).json({ message: 'Failed to save uploaded file' });
