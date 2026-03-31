@@ -13,17 +13,18 @@ export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const eventSourceRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
 
   const getNotificationMessage = useCallback((event) => {
     const name = event.fileName || '';
-    const user = event.userName || '';
+    const userName = event.userName || '';
     switch (event.type) {
-      case 'file_added': return `${t('newFileUploaded')}: ${name} (${user})`;
-      case 'file_updated': return `${t('fileUpdated')}: ${name} (${user})`;
-      case 'file_deleted': return `${t('fileDeletedNotif')}: ${name} (${user})`;
-      case 'version_restored': return `${t('versionRestored')}: ${name} (${user})`;
-      case 'file_locked': return `${t('fileLockNotif')}: ${name} (${user})`;
-      case 'file_unlocked': return `${t('fileUnlockNotif')}: ${name} (${user})`;
+      case 'file_added': return `${t('newFileUploaded')}: ${name} (${userName})`;
+      case 'file_updated': return `${t('fileUpdated')}: ${name} (${userName})`;
+      case 'file_deleted': return `${t('fileDeletedNotif')}: ${name} (${userName})`;
+      case 'version_restored': return `${t('versionRestored')}: ${name} (${userName})`;
+      case 'file_locked': return `${t('fileLockNotif')}: ${name} (${userName})`;
+      case 'file_unlocked': return `${t('fileUnlockNotif')}: ${name} (${userName})`;
       default: return name;
     }
   }, [t]);
@@ -31,6 +32,7 @@ export function NotificationProvider({ children }) {
   const connectSSE = useCallback(() => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
 
     const token = localStorage.getItem('accessToken');
@@ -38,6 +40,10 @@ export function NotificationProvider({ children }) {
 
     const es = new EventSource(`/api/notifications/stream?token=${encodeURIComponent(token)}`);
     eventSourceRef.current = es;
+
+    es.onopen = () => {
+      // SSE connection established successfully
+    };
 
     es.onmessage = (e) => {
       try {
@@ -73,20 +79,27 @@ export function NotificationProvider({ children }) {
     es.onerror = () => {
       es.close();
       eventSourceRef.current = null;
-      // Reconnect after 10 seconds
-      setTimeout(() => {
-        if (user) connectSSE();
+      // Only reconnect if the user still has a valid token
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = setTimeout(() => {
+        const currentToken = localStorage.getItem('accessToken');
+        if (currentToken) connectSSE();
       }, 10000);
     };
-  }, [user, getNotificationMessage, t]);
+  }, [getNotificationMessage, t]);
 
   useEffect(() => {
-    if (user) {
+    const userId = user?.id;
+    if (userId) {
       connectSSE();
     } else {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
       }
     }
     return () => {
@@ -94,8 +107,12 @@ export function NotificationProvider({ children }) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
     };
-  }, [user, connectSSE]);
+  }, [user?.id, connectSSE]);
 
   const markAllRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
