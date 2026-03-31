@@ -136,6 +136,8 @@ export default {
   reactivateUser: 'Kích hoạt',
   confirmReactivateUser: 'Kích hoạt lại tài khoản này?',
   userReactivated: 'Đã kích hoạt tài khoản',
+  onlineNow: 'Đang hoạt động',
+  cannotChangeOwnRole: 'Không thể đổi vai trò của chính mình',
 
   // Profile
   myProfile: 'Hồ sơ cá nhân',

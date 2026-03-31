@@ -5,6 +5,7 @@ const fs = require('fs');
 const { getDb } = require('../models/database');
 const logger = require('../utils/logger');
 const config = require('../config');
+const { getOnlineUserIds, getLastSeen } = require('../utils/notifications');
 
 async function listUsers(req, res) {
   const db = getDb();
@@ -14,16 +15,23 @@ async function listUsers(req, res) {
     FROM users u
     ORDER BY u.created_at DESC
   `).all();
-  res.json(users.map(u => ({
-    id: u.id,
-    username: u.username,
-    displayName: u.display_name,
-    role: u.role,
-    isActive: !!u.is_active,
-    avatarUrl: u.avatar_url,
-    createdAt: u.created_at,
-    lastLogin: u.last_login || null,
-  })));
+  const onlineIds = getOnlineUserIds();
+  res.json(users.map(u => {
+    const isOnline = onlineIds.has(u.id);
+    const lastSeenTs = isOnline ? null : getLastSeen(u.id);
+    return {
+      id: u.id,
+      username: u.username,
+      displayName: u.display_name,
+      role: u.role,
+      isActive: !!u.is_active,
+      avatarUrl: u.avatar_url,
+      createdAt: u.created_at,
+      lastLogin: u.last_login || null,
+      isOnline,
+      lastSeen: lastSeenTs ? new Date(lastSeenTs).toISOString() : null,
+    };
+  }));
 }
 
 async function createUser(req, res) {
@@ -89,6 +97,16 @@ async function updateUser(req, res) {
   // Prevent admin from deactivating themselves
   if (req.params.id === req.user.id && isActive === false) {
     return res.status(400).json({ message: 'Cannot deactivate yourself' });
+  }
+
+  // Prevent admin from changing their own role if they are the only active admin
+  if (req.params.id === req.user.id && role !== undefined && role !== 'admin') {
+    const otherAdminCount = db.prepare(
+      "SELECT COUNT(*) as cnt FROM users WHERE role='admin' AND is_active=1 AND id != ?"
+    ).get(req.params.id).cnt;
+    if (otherAdminCount === 0) {
+      return res.status(400).json({ message: 'Cannot change your own role: you are the only active admin' });
+    }
   }
 
   const updates = [];

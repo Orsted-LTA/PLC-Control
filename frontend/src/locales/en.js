@@ -136,6 +136,8 @@ export default {
   reactivateUser: 'Activate',
   confirmReactivateUser: 'Reactivate this user?',
   userReactivated: 'User activated',
+  onlineNow: 'Online',
+  cannotChangeOwnRole: 'Cannot change your own role',
 
   // Profile
   myProfile: 'My Profile',

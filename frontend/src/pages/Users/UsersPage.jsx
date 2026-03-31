@@ -32,7 +32,11 @@ export default function UsersPage() {
     }
   }, []);
 
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  useEffect(() => {
+    fetchUsers();
+    const interval = setInterval(fetchUsers, 30000);
+    return () => clearInterval(interval);
+  }, [fetchUsers]);
 
   const openCreate = () => {
     setEditUser(null);
@@ -135,10 +139,14 @@ export default function UsersPage() {
         if (!record.isActive) {
           return <Badge status="error" text={t('lockedAccount')} />;
         }
-        if (record.lastLogin) {
+        if (record.isOnline) {
+          return <Badge status="success" text={t('onlineNow')} />;
+        }
+        const timeRef = record.lastSeen || record.lastLogin;
+        if (timeRef) {
           return (
-            <Tooltip title={dayjs(record.lastLogin).format('YYYY-MM-DD HH:mm')}>
-              <Badge status="default" text={`${t('active')} ${dayjs(record.lastLogin).locale(lang).fromNow()}`} />
+            <Tooltip title={dayjs(timeRef).format('YYYY-MM-DD HH:mm')}>
+              <Badge status="default" text={`${t('active')} ${dayjs(timeRef).locale(lang).fromNow()}`} />
             </Tooltip>
           );
         }
@@ -254,6 +262,7 @@ export default function UsersPage() {
             rules={[{ required: true }]}
           >
             <Select
+              disabled={!!editUser && editUser.id === currentUser?.id}
               options={[
                 { value: 'admin', label: t('admin') },
                 { value: 'user', label: t('userRole') },
@@ -261,6 +270,11 @@ export default function UsersPage() {
               ]}
             />
           </Form.Item>
+          {editUser && editUser.id === currentUser?.id && (
+            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: -16, marginBottom: 16 }}>
+              {t('cannotChangeOwnRole')}
+            </Text>
+          )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button onClick={() => setModalOpen(false)}>{t('cancel')}</Button>
