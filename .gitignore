@@ -33,3 +33,7 @@ desktop.ini
 # Temp
 tmp/
 temp/
+data/plc_control.db
+data/plc_control.db-shm
+data/plc_control.db-wal
+data/backups/
