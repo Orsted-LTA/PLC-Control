@@ -343,16 +343,30 @@ router.post('/backups/:name/download-file', authenticateToken, requireAdmin, (re
       return res.status(404).json({ message: 'Physical file not found in backup' });
     }
 
-    const downloadName = `${backupFile.name}_v${backupVersion.version_number}`;
+    const downloadName = backupFile.name || 'download';
+    const fileStat = fs.statSync(srcPath);
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(downloadName)}"`);
     if (backupVersion.mime_type) {
       res.setHeader('Content-Type', backupVersion.mime_type);
     } else {
       res.setHeader('Content-Type', 'application/octet-stream');
     }
-    res.setHeader('Content-Length', backupVersion.size);
+    res.setHeader('Content-Length', fileStat.size);
 
     const stream = fs.createReadStream(srcPath);
+    stream.on('error', (streamErr) => {
+      logger.error('Failed to stream backup download', {
+        error: streamErr.message,
+        backupName: req.params.name,
+        fileId,
+        versionId,
+      });
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to download file from backup' });
+      } else {
+        res.destroy(streamErr);
+      }
+    });
     stream.pipe(res);
   } catch (err) {
     if (backupDb) { try { backupDb.close(); } catch (closeErr) { logger.warn('Failed to close backup DB', { error: closeErr.message }); } backupDb = null; }

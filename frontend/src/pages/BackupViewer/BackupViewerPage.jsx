@@ -97,13 +97,19 @@ export default function BackupViewerPage() {
     }
   };
 
-  const handleDownload = async (fileId, versionId, fileName, versionNumber) => {
+  const handleDownload = async (fileId, versionId, fileName) => {
     try {
       const res = await downloadBackupFile(name, fileId, versionId);
+      const disposition = res.headers['content-disposition'];
+      let downloadName = fileName;
+      if (disposition) {
+        const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i);
+        if (match) downloadName = decodeURIComponent(match[1]);
+      }
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${fileName}_v${versionNumber}`;
+      a.download = downloadName;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -154,7 +160,7 @@ export default function BackupViewerPage() {
               <Button
                 size="small"
                 icon={<DownloadOutlined />}
-                onClick={() => handleDownload(record.id, ver.id, record.name, ver.versionNumber)}
+                onClick={() => handleDownload(record.id, ver.id, record.name)}
               >
                 {t('download')}
               </Button>

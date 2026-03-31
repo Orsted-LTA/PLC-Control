@@ -45,13 +45,23 @@ async function downloadVersion(req, res) {
     return res.status(410).json({ message: 'Version file not found on disk' });
   }
 
-  const ext = path.extname(version.file_name);
-  const downloadName = `${path.basename(version.file_name, ext)}_v${version.version_number}${ext}`;
+  const downloadName = version.file_name || 'download';
+  const fileStat = fs.statSync(version.storage_path);
 
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(downloadName)}"`);
   res.setHeader('Content-Type', version.mime_type || 'application/octet-stream');
-  res.setHeader('Content-Length', version.size);
-  fs.createReadStream(version.storage_path).pipe(res);
+  res.setHeader('Content-Length', fileStat.size);
+
+  const stream = fs.createReadStream(version.storage_path);
+  stream.on('error', (err) => {
+    logger.error('Failed to stream version download', { error: err.message, versionId: version.id });
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Failed to download file' });
+    } else {
+      res.destroy(err);
+    }
+  });
+  stream.pipe(res);
 }
 
 async function diffVersions(req, res) {
