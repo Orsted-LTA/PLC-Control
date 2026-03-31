@@ -17,6 +17,11 @@ const ACTION_COLORS = {
   delete_file: 'error',
   restore_version: 'warning',
   create_user: 'success',
+  update_user: 'processing',
+  delete_user: 'error',
+  create_folder: 'success',
+  update_folder: 'processing',
+  delete_folder: 'error',
   login: 'default',
   logout: 'default',
 };
@@ -48,6 +53,10 @@ export default function DashboardPage() {
       restore_version: t('actionRestoreVersion'),
       create_user: t('actionCreateUser'),
       update_user: t('actionUpdateUser'),
+      delete_user: t('actionDeleteUser'),
+      create_folder: t('actionCreateFolder'),
+      update_folder: t('actionUpdateFolder'),
+      delete_folder: t('actionDeleteFolder'),
       login: t('actionLogin'),
       logout: t('actionLogout'),
     };
