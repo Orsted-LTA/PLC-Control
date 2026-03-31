@@ -41,8 +41,14 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Compression
-app.use(compression());
+// Compression (exclude SSE streams to prevent buffering real-time events)
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers.accept === 'text/event-stream') return false;
+    if (res.getHeader && res.getHeader('Content-Type') === 'text/event-stream') return false;
+    return compression.filter(req, res);
+  }
+}));
 
 // Rate limiting
 const limiter = rateLimit({
