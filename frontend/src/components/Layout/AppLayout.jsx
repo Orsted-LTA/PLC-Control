@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Button, Space, Typography, Switch, Badge, Popover, List, Empty, Tag } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Button, Space, Typography, Badge, Popover, List, Empty, Tag } from 'antd';
 import {
   DashboardOutlined,
   FileOutlined,
@@ -135,15 +135,32 @@ export default function AppLayout() {
           />
 
           <Space>
-            <Space>
+            <Space size={4}>
               <GlobalOutlined style={{ color: '#999' }} />
-              <Switch
-                checkedChildren="EN"
-                unCheckedChildren="VI"
-                checked={lang === 'en'}
-                onChange={(checked) => switchLang(checked ? 'en' : 'vi')}
+              <Button
                 size="small"
-              />
+                type={lang === 'vi' ? 'primary' : 'text'}
+                onClick={() => switchLang('vi')}
+                style={{ padding: '0 6px', fontSize: 12 }}
+              >
+                VI
+              </Button>
+              <Button
+                size="small"
+                type={lang === 'en' ? 'primary' : 'text'}
+                onClick={() => switchLang('en')}
+                style={{ padding: '0 6px', fontSize: 12 }}
+              >
+                EN
+              </Button>
+              <Button
+                size="small"
+                type={lang === 'zh' ? 'primary' : 'text'}
+                onClick={() => switchLang('zh')}
+                style={{ padding: '0 6px', fontSize: 12 }}
+              >
+                中文
+              </Button>
             </Space>
 
             <Popover

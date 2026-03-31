@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import vi from '../locales/vi';
 import en from '../locales/en';
+import zh from '../locales/zh';
 
-const locales = { vi, en };
+const locales = { vi, en, zh };
 
 const LangContext = createContext(null);
 
