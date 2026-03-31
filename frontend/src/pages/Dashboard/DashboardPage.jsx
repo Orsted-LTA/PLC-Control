@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Row, Col, Card, Statistic, Table, Tag, Typography, Spin, Space, Avatar, Button, Popconfirm, message } from 'antd';
 import {
   FileOutlined, HistoryOutlined, TeamOutlined,
-  DatabaseOutlined, UserOutlined, CloudUploadOutlined, DeleteOutlined,
+  DatabaseOutlined, UserOutlined, CloudUploadOutlined, DeleteOutlined, EyeOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -269,16 +269,25 @@ export default function DashboardPage() {
                 title: t('actions'),
                 key: 'actions',
                 render: (_, record) => (
-                  <Popconfirm
-                    title={t('backupDeleteConfirm')}
-                    onConfirm={() => handleDeleteBackup(record.name)}
-                    okText={t('yes')}
-                    cancelText={t('no')}
-                  >
-                    <Button size="small" danger icon={<DeleteOutlined />}>
-                      {t('delete')}
+                  <Space>
+                    <Button
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={() => navigate(`/backups/${record.name}`)}
+                    >
+                      {t('backupViewer')}
                     </Button>
-                  </Popconfirm>
+                    <Popconfirm
+                      title={t('backupDeleteConfirm')}
+                      onConfirm={() => handleDeleteBackup(record.name)}
+                      okText={t('yes')}
+                      cancelText={t('no')}
+                    >
+                      <Button size="small" danger icon={<DeleteOutlined />}>
+                        {t('delete')}
+                      </Button>
+                    </Popconfirm>
+                  </Space>
                 ),
               },
             ]}
