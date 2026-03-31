@@ -8,9 +8,12 @@ const config = require('../config');
 
 async function listUsers(req, res) {
   const db = getDb();
-  const users = db
-    .prepare('SELECT id, username, display_name, role, is_active, avatar_url, created_at FROM users ORDER BY created_at DESC')
-    .all();
+  const users = db.prepare(`
+    SELECT u.id, u.username, u.display_name, u.role, u.is_active, u.avatar_url, u.created_at,
+      (SELECT a.created_at FROM activity_log a WHERE a.user_id = u.id AND a.action = 'login' ORDER BY a.created_at DESC LIMIT 1) as last_login
+    FROM users u
+    ORDER BY u.created_at DESC
+  `).all();
   res.json(users.map(u => ({
     id: u.id,
     username: u.username,
@@ -19,6 +22,7 @@ async function listUsers(req, res) {
     isActive: !!u.is_active,
     avatarUrl: u.avatar_url,
     createdAt: u.created_at,
+    lastLogin: u.last_login || null,
   })));
 }
 

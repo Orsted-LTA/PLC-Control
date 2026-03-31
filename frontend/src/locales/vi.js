@@ -132,6 +132,10 @@ export default {
   userUpdated: 'Đã cập nhật người dùng',
   userDeleted: 'Đã ngừng hoạt động người dùng',
   confirmDeleteUser: 'Ngừng hoạt động người dùng này?',
+  lockedAccount: 'Tài khoản bị khóa',
+  reactivateUser: 'Kích hoạt',
+  confirmReactivateUser: 'Kích hoạt lại tài khoản này?',
+  userReactivated: 'Đã kích hoạt tài khoản',
 
   // Profile
   myProfile: 'Hồ sơ cá nhân',

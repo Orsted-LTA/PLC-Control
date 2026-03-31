@@ -132,6 +132,10 @@ export default {
   userUpdated: 'User updated',
   userDeleted: 'User deactivated',
   confirmDeleteUser: 'Deactivate this user?',
+  lockedAccount: 'Account Locked',
+  reactivateUser: 'Activate',
+  confirmReactivateUser: 'Reactivate this user?',
+  userReactivated: 'User activated',
 
   // Profile
   myProfile: 'My Profile',
