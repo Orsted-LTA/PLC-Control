@@ -114,6 +114,14 @@ router.get('/backups/:name/files', authenticateToken, requireAdmin, (req, res) =
     backupDb = new Database(backupDbPath, { readonly: true });
     const mainDb = getDb();
 
+    // Check if the backup database has the files table (older backups may be incomplete)
+    const hasFilesTable = backupDb.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='files'"
+    ).get();
+    if (!hasFilesTable) {
+      return res.status(422).json({ message: 'Backup database schema is incomplete (missing files table)' });
+    }
+
     const backupFiles = backupDb.prepare(
       'SELECT * FROM files WHERE is_deleted = 0 ORDER BY path, name'
     ).all();
