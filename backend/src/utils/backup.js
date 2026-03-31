@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const config = require('../config');
 const logger = require('./logger');
+const { getDb } = require('../models/database');
 
 function getBackupDir() {
   return config.backupDir;
@@ -39,9 +40,15 @@ function runBackup() {
 
   ensureDir(backupPath);
 
-  // Backup SQLite database
+  // Backup SQLite database — checkpoint WAL first so all data is in the main file
   const dbPath = path.join(config.dataDir, 'plc_control.db');
   if (fs.existsSync(dbPath)) {
+    try {
+      const db = getDb();
+      db.pragma('wal_checkpoint(TRUNCATE)');
+    } catch (err) {
+      logger.warn('WAL checkpoint failed before backup', { error: err.message });
+    }
     fs.copyFileSync(dbPath, path.join(backupPath, 'plc_control.db'));
   }
 
