@@ -90,6 +90,7 @@ app.get('/api/notifications/stream', authenticateToken, (req, res) => {
   res.write(': connected\n\n');
 
   addClient(res);
+  logger.info('SSE stream opened', { userId: req.user.id, username: req.user.username });
 
   // Heartbeat every 30 seconds to keep connection alive
   const heartbeat = setInterval(() => {
@@ -103,6 +104,7 @@ app.get('/api/notifications/stream', authenticateToken, (req, res) => {
   req.on('close', () => {
     clearInterval(heartbeat);
     removeClient(res);
+    logger.info('SSE stream closed', { userId: req.user.id, username: req.user.username });
   });
 });
 
