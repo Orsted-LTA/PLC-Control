@@ -569,6 +569,7 @@ export default function FileDetailPage() {
             isOfficeExtracted={diff.isOfficeExtracted}
             fromVersion={diff.from}
             toVersion={diff.to}
+            isExpanded
           />
         )}
       </Modal>

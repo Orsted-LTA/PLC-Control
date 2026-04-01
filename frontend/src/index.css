@@ -24,7 +24,11 @@ code, pre, .ant-typography code {
   display: none;
 }
 
-/* Scrollbar */
+/* Disable sticky positioning for diff line numbers in expanded modal to prevent misalignment */
+.diff-container-expanded .d2h-code-linenumber {
+  position: static !important;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
