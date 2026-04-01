@@ -148,6 +148,7 @@ export default function DashboardPage() {
     };
     return map[action] || action;
   };
+    if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 100 }}>
         <Spin size="large" />
