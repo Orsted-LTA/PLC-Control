@@ -7,7 +7,7 @@ import {
 import {
   ArrowLeftOutlined, UploadOutlined, DownloadOutlined, SwapOutlined,
   RollbackOutlined, InboxOutlined, TagOutlined, FolderOutlined,
-  LockOutlined, UnlockOutlined,
+  LockOutlined, UnlockOutlined, ExpandOutlined, ShrinkOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -49,6 +49,8 @@ export default function FileDetailPage() {
   const [lockLoading, setLockLoading] = useState(false);
   const [lockModal, setLockModal] = useState(false);
   const [lockReason, setLockReason] = useState('');
+
+  const [isDiffExpanded, setIsDiffExpanded] = useState(false);
 
   const fetchFile = async () => {
     setLoading(true);
@@ -250,8 +252,17 @@ export default function FileDetailPage() {
                 >
                   {t('compare')}
                 </Button>
+                {diff && (
+                  <Tooltip title={isDiffExpanded ? t('collapse') ?? 'Thu gọn' : t('expand') ?? 'Mở rộng'}>
+                    <Button
+                      size="small"
+                      icon={isDiffExpanded ? <ShrinkOutlined /> : <ExpandOutlined />}
+                      onClick={() => setIsDiffExpanded(v => !v)}
+                    />
+                  </Tooltip>
+                )}
               </div>
-              {diff && (
+              {diff && !isDiffExpanded && (
                 <FileDiff
                   diff={diff.diff}
                   isBinary={diff.isBinary}
@@ -259,6 +270,34 @@ export default function FileDetailPage() {
                   fromVersion={diff.from}
                   toVersion={diff.to}
                 />
+              )}
+              {diff && isDiffExpanded && (
+                <Modal
+                  open={isDiffExpanded}
+                  onCancel={() => setIsDiffExpanded(false)}
+                  footer={null}
+                  width="95vw"
+                  style={{ top: 20 }}
+                  styles={{ body: { maxHeight: '85vh', overflow: 'auto', padding: '0 16px' } }}
+                  title={
+                    <span>
+                      Comparing:
+                      {' '}
+                      <Tag color="blue">v{Math.min(...selectedVersions.map(v => v.versionNumber))}</Tag>
+                      →
+                      <Tag color="green">v{Math.max(...selectedVersions.map(v => v.versionNumber))}</Tag>
+                    </span>
+                  }
+                  destroyOnClose={false}
+                >
+                  <FileDiff
+                    diff={diff.diff}
+                    isBinary={diff.isBinary}
+                    isOfficeExtracted={diff.isOfficeExtracted}
+                    fromVersion={diff.from}
+                    toVersion={diff.to}
+                  />
+                </Modal>
               )}
             </div>
           )}
