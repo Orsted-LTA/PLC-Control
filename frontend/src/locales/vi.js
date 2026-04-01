@@ -176,6 +176,12 @@ export default {
   actionDeleteFolder: 'Xóa folder',
   actionLockFile: 'Khóa file',
   actionUnlockFile: 'Mở khóa file',
+  actionSubscribeFile: 'Theo dõi file',
+  actionUnsubscribeFile: 'Bỏ theo dõi file',
+  actionAddTags: 'Gắn tag',
+  actionCreateTag: 'Tạo tag',
+  actionDeleteTag: 'Xóa tag',
+  actionAddComment: 'Bình luận',
   avatarUploaded: 'Tải ảnh đại diện thành công',
   fileTooLarge: 'Ảnh tối đa 5MB',
 

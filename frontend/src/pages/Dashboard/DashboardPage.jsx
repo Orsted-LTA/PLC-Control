@@ -29,6 +29,12 @@ const ACTION_COLORS = {
   unlock_file: 'cyan',
   login: 'default',
   logout: 'default',
+  subscribe_file: 'geekblue',
+  unsubscribe_file: 'geekblue',
+  add_file_tags: 'blue',
+  create_tag: 'success',
+  delete_tag: 'error',
+  add_comment: 'purple',
 };
 
 function formatBytes(bytes) {
@@ -133,11 +139,15 @@ export default function DashboardPage() {
       unlock_file: t('actionUnlockFile'),
       login: t('actionLogin'),
       logout: t('actionLogout'),
+      subscribe_file: t('actionSubscribeFile'),
+      unsubscribe_file: t('actionUnsubscribeFile'),
+      add_file_tags: t('actionAddTags'),
+      create_tag: t('actionCreateTag'),
+      delete_tag: t('actionDeleteTag'),
+      add_comment: t('actionAddComment'),
     };
     return map[action] || action;
   };
-
-  if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 100 }}>
         <Spin size="large" />
