@@ -5,7 +5,7 @@ import 'diff2html/bundles/css/diff2html.min.css';
 
 const { Text } = Typography;
 
-export default function FileDiff({ diff, isBinary, isOfficeExtracted, fromVersion, toVersion }) {
+export default function FileDiff({ diff, isBinary, isOfficeExtracted, fromVersion, toVersion, isExpanded }) {
   const containerRef = useRef(null);
   const [, forceUpdate] = useState(0);
 
@@ -74,8 +74,8 @@ export default function FileDiff({ diff, isBinary, isOfficeExtracted, fromVersio
       )}
       <div
         ref={containerRef}
-        style={{ fontSize: 13, overflow: 'auto' }}
-        className="diff-container"
+        style={{ fontSize: 13, overflow: isExpanded ? 'visible' : 'auto' }}
+        className={isExpanded ? 'diff-container diff-container-expanded' : 'diff-container'}
       />
     </div>
   );
