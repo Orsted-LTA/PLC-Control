@@ -11,10 +11,10 @@
 - **Upload & theo dõi** lịch sử thay đổi file PLC (`.cxp`, `.prg`, `.gp`, `.zip`, Word, Excel, v.v.)
 - **Version control**: mỗi lần upload → tạo version mới, có lịch sử đầy đủ
 - **Diff view**: so sánh nội dung giữa 2 phiên bản (text diff highlight)
-- **Restore**: khôi phục về phiên bản cũ
+- **Restore**: khôi phục về phiên bản cũ, lưu backup
 - **Phân quyền**: Admin / Kỹ sư (User) / Chỉ xem (Viewer)
 - **Audit log**: ghi lại toàn bộ hoạt động hệ thống
-- **Đa ngôn ngữ**: Tiếng Việt & English
+- **Đa ngôn ngữ**: Tiếng Việt. Trung & English
 - **Font đa ngôn ngữ**: Hỗ trợ Tiếng Việt và Tiếng Trung
 
 ---
