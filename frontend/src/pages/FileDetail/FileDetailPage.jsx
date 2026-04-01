@@ -262,7 +262,7 @@ export default function FileDetailPage() {
                   </Tooltip>
                 )}
               </div>
-              {diff && !isDiffExpanded && (
+              {diff && (
                 <FileDiff
                   diff={diff.diff}
                   isBinary={diff.isBinary}
@@ -270,34 +270,6 @@ export default function FileDetailPage() {
                   fromVersion={diff.from}
                   toVersion={diff.to}
                 />
-              )}
-              {diff && isDiffExpanded && (
-                <Modal
-                  open={isDiffExpanded}
-                  onCancel={() => setIsDiffExpanded(false)}
-                  footer={null}
-                  width="95vw"
-                  style={{ top: 20 }}
-                  styles={{ body: { maxHeight: '85vh', overflow: 'auto', padding: '0 16px' } }}
-                  title={
-                    <span>
-                      Comparing:
-                      {' '}
-                      <Tag color="blue">v{Math.min(...selectedVersions.map(v => v.versionNumber))}</Tag>
-                      →
-                      <Tag color="green">v{Math.max(...selectedVersions.map(v => v.versionNumber))}</Tag>
-                    </span>
-                  }
-                  destroyOnClose={false}
-                >
-                  <FileDiff
-                    diff={diff.diff}
-                    isBinary={diff.isBinary}
-                    isOfficeExtracted={diff.isOfficeExtracted}
-                    fromVersion={diff.from}
-                    toVersion={diff.to}
-                  />
-                </Modal>
               )}
             </div>
           )}
@@ -567,6 +539,38 @@ export default function FileDetailPage() {
           value={lockReason}
           onChange={(e) => setLockReason(e.target.value)}
         />
+      </Modal>
+
+      {/* Diff fullscreen expand modal */}
+      <Modal
+        open={isDiffExpanded}
+        onCancel={() => setIsDiffExpanded(false)}
+        footer={null}
+        width="95vw"
+        style={{ top: 20 }}
+        styles={{ body: { maxHeight: '85vh', overflow: 'auto', padding: '0 16px' } }}
+        title={
+          diff && selectedVersions.length >= 2 && (
+            <span>
+              Comparing:
+              {' '}
+              <Tag color="blue">v{Math.min(...selectedVersions.map(v => v.versionNumber))}</Tag>
+              →
+              <Tag color="green">v{Math.max(...selectedVersions.map(v => v.versionNumber))}</Tag>
+            </span>
+          )
+        }
+        destroyOnClose={false}
+      >
+        {diff && (
+          <FileDiff
+            diff={diff.diff}
+            isBinary={diff.isBinary}
+            isOfficeExtracted={diff.isOfficeExtracted}
+            fromVersion={diff.from}
+            toVersion={diff.to}
+          />
+        )}
       </Modal>
     </div>
   );
