@@ -1,61 +1,74 @@
-# PLC Control – Hệ Thống Quản Lý Phiên Bản File PLC
+# PLC Control — Hệ Thống Quản Lý Phiên Bản File PLC
 
-> 🔧 Mini Git Server nội bộ dành cho kỹ sư PLC – Chạy 24/7 trong mạng LAN
+> 🏭 Mini Git Server nội bộ dành cho kỹ sư PLC — Chạy 24/7 trong mạng LAN, không cần Internet
+
+[![JavaScript](https://img.shields.io/badge/JavaScript-99.5%25-F7DF1E?logo=javascript&logoColor=black)](https://github.com/Orsted-LTA/PLC-Control)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![License](https://img.shields.io/badge/License-Private-red)](https://github.com/Orsted-LTA/PLC-Control)
 
 ---
 
 ## 📋 Tổng Quan
 
-**PLC Control** là hệ thống quản lý phiên bản file tương tự Git, được xây dựng cho doanh nghiệp sản xuất để:
+**PLC Control** là hệ thống quản lý phiên bản file nội bộ, được xây dựng cho môi trường sản xuất công nghiệp. Mỗi lần kỹ sư upload file PLC → hệ thống tự động tạo version mới, lưu toàn bộ lịch sử, cho phép so sánh và khôi phục bất kỳ phiên bản nào — tương tự Git nhưng dành riêng cho file máy PLC.
 
-- **Upload & theo dõi** lịch sử thay đổi file PLC (`.cxp`, `.prg`, `.gp`, `.zip`, Word, Excel, v.v.)
-- **Version control**: mỗi lần upload → tạo version mới, có lịch sử đầy đủ
-- **Diff view**: so sánh nội dung giữa 2 phiên bản (text diff highlight)
-- **Restore**: khôi phục về phiên bản cũ, lưu backup
-- **Phân quyền**: Admin / Kỹ sư (User) / Chỉ xem (Viewer)
-- **Audit log**: ghi lại toàn bộ hoạt động hệ thống
-- **Đa ngôn ngữ**: Tiếng Việt. Trung & English
-- **Font đa ngôn ngữ**: Hỗ trợ Tiếng Việt và Tiếng Trung
+### ✨ Tính Năng Chính
+
+| Tính năng | Mô tả |
+|---|---|
+| 📁 **Quản lý file & thư mục** | Cấu trúc Line → Machine, hỗ trợ mọi định dạng file PLC |
+| 🔢 **Version Control** | Mỗi upload tạo version mới, lưu lịch sử đầy đủ với commit message |
+| 🔍 **Diff View** | So sánh nội dung 2 phiên bản với highlight thay đổi, hỗ trợ fullscreen |
+| 📄 **Office Diff** | Trích xuất và so sánh nội dung file Word, Excel, PowerPoint, CSV, RTF |
+| ↩️ **Restore** | Khôi phục về bất kỳ phiên bản cũ nào, tự động tạo backup WAL |
+| 🔒 **File Lock/Unlock** | Khóa file khi đang chỉnh sửa, ngăn xung đột giữa nhiều kỹ sư |
+| 🔔 **Thông báo Real-time** | SSE (Server-Sent Events) hiển thị hoạt động tức thì |
+| 🟢 **Trạng thái Online** | Xem ai đang online trong hệ thống theo thời gian thực |
+| 💾 **Backup tự động** | Tự động backup DB theo lịch, có thể duyệt và khôi phục từ snapshot |
+| 👥 **Phân quyền** | Admin / Kỹ sư (Editor) / Chỉ xem (Viewer) |
+| 📊 **Dashboard & Audit Log** | Thống kê tổng quan và lịch sử toàn bộ hoạt động hệ thống |
+| 🌐 **Đa ngôn ngữ** | Tiếng Việt 🇻🇳 · English 🇬🇧 · 中文 🇨🇳 |
+| 📤 **Upload lớn** | Hỗ trợ file lên đến **5 GB** |
 
 ---
 
 ## 🏗️ Kiến Trúc Hệ Thống
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     PLC Control Server                       │
-│                                                             │
-│  ┌───────────────┐      ┌─────────────────────────────────┐ │
-│  │   Frontend    │      │          Backend                │ │
-│  │  React + Vite │─────▶│   Node.js + Express             │ │
-│  │  Ant Design   │      │   REST API                      │ │
-│  │  (Port 3000)  │      │   (Port 3001)                   │ │
-│  └───────────────┘      └──────────┬──────────────────────┘ │
-│                                    │                         │
-│                         ┌──────────▼──────────┐             │
-│                         │      SQLite DB       │             │
-│                         │  ./data/plc.db       │             │
-│                         └──────────────────────┘             │
-│                                    │                         │
-│                         ┌──────────▼──────────┐             │
-│                         │   File Storage       │             │
-│                         │  ./uploads/          │             │
-│                         └──────────────────────┘             │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                      PLC Control Server                       │
+│                                                              │
+│   ┌──────────────────┐      ┌────────────────────────────┐   │
+│   │    Frontend      │      │         Backend            │   │
+│   │  React 18 + Vite │─────▶│   Node.js + Express        │   │
+│   │   Ant Design 5   │      │   REST API + SSE           │   │
+│   │   (Port 3000)    │◀─────│   (Port 3001)              │   │
+│   └──────────────────┘      └───────────┬────────────────┘   │
+│                                         │                    │
+│                              ┌──────────▼──────────┐        │
+│                              │      SQLite DB       │        │
+│                              │   ./data/plc.db      │        │
+│                              └──────────┬───────────┘        │
+│                                         │                    │
+│                              ┌──────────▼──────────┐        │
+│                              │    File Storage      │        │
+│                              │   ./uploads/         │        │
+│                              └─────────────────────┘        │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### Stack Công Nghệ
 
-| Layer       | Technology                     |
-|-------------|-------------------------------|
-| Backend     | Node.js 18+ / Express 4        |
-| Database    | SQLite (better-sqlite3)        |
-| Storage     | Local disk                    |
-| Auth        | JWT (access + refresh tokens)  |
-| Frontend    | React 18 + Vite 8              |
-| UI Library  | Ant Design 5                  |
-| Diff View   | diff2html                     |
-| Font        | Inter, Noto Sans, Noto Sans SC |
+| Layer | Technology |
+|---|---|
+| **Backend** | Node.js 18+ · Express 4 · better-sqlite3 |
+| **Auth** | JWT (access token + refresh token) |
+| **Real-time** | SSE (Server-Sent Events) |
+| **Frontend** | React 18 · Vite · Ant Design 5 |
+| **Diff Engine** | diff · diff2html |
+| **Office Parser** | xlsx · mammoth · pptx2json |
+| **Font** | Inter · Noto Sans · Noto Sans SC |
 
 ---
 
@@ -65,25 +78,24 @@
 PLC-Control/
 ├── backend/
 │   ├── src/
-│   │   ├── config/         # Cấu hình (port, JWT, storage)
-│   │   ├── middleware/      # Auth, error handler
-│   │   ├── models/         # Database schema + init
+│   │   ├── config/         # Cấu hình port, JWT, storage
+│   │   ├── middleware/     # Auth, error handler, SSE
+│   │   ├── models/         # Database schema & khởi tạo
 │   │   ├── routes/         # API routes
 │   │   ├── controllers/    # Business logic
-│   │   └── utils/          # Logger, file utils, cleanup, diff
-│   ├── .env.example        # Template biến môi trường
+│   │   └── utils/          # Logger, file utils, diff, backup
+│   ├── .env.example
 │   ├── package.json
-│   └── server.js           # Entry point
+│   └── server.js
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── api/            # Axios client
 │   │   ├── components/     # Layout, CommitGraph, FileDiff
 │   │   ├── contexts/       # AuthContext, LangContext
-│   │   ├── locales/        # vi.js, en.js (i18n)
-│   │   ├── pages/          # Login, Dashboard, Files, FileDetail, History, Users, Profile
-│   │   ├── App.jsx
-│   │   └── main.jsx
+│   │   ├── locales/        # vi.js · en.js · zh.js
+│   │   └── pages/          # Login, Dashboard, Files, FileDetail,
+│   │                       # History, Users, Profile, BackupViewer
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.js
@@ -96,291 +108,145 @@ PLC-Control/
 
 ## ⚙️ Yêu Cầu Môi Trường
 
-| Software    | Version  | Notes                         |
-|-------------|----------|-------------------------------|
-| Node.js     | >= 18.x  | Khuyến nghị LTS 20.x hoặc 22.x |
-| npm         | >= 9.x   | Đi kèm Node.js                |
-| OS          | Windows 10/11, Windows Server 2016+, hoặc Linux |
-
-> ⚠️ **Trên Windows**: `better-sqlite3` cần build native module.
-> Cài [Visual C++ Build Tools](https://aka.ms/vs/17/release/vs_BuildTools.exe) nếu gặp lỗi khi `npm install`.
+| Software | Version | Ghi chú |
+|---|---|---|
+| Node.js | 18+ | LTS recommended |
+| npm | 9+ | Đi kèm Node.js |
+| OS | Windows / Linux / macOS | Đã test trên Windows Server & Ubuntu |
 
 ---
 
 ## 🚀 Cài Đặt & Chạy
 
-### 1. Clone / Tải Source Code
+### 1. Clone repo
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Orsted-LTA/PLC-Control.git
 cd PLC-Control
 ```
 
-### 2. Cài Đặt Backend
+### 2. Cài đặt Backend
 
 ```bash
 cd backend
 npm install
 cp .env.example .env
+# Chỉnh sửa .env nếu cần (port, JWT secret, v.v.)
 ```
 
-**Chỉnh sửa file `.env`** (bắt buộc đổi JWT_SECRET, khuyến nghị đổi mật khẩu admin):
-
-```env
-PORT=3001
-HOST=0.0.0.0
-
-JWT_SECRET=your-very-long-random-secret-key-here
-
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=Admin@123456
-ADMIN_DISPLAY_NAME=Administrator
-```
-
-### 3. Cài Đặt & Build Frontend
+### 3. Cài đặt Frontend
 
 ```bash
 cd ../frontend
 npm install
-npm run build
 ```
 
-### 4. Chạy Server
+### 4. Chạy hệ thống
 
-```bash
-cd ../backend
-npm start
-```
-
-Server khởi động tại: **http://localhost:3001**
-
-Truy cập từ máy khác trong mạng LAN: **http://\<IP-server\>:3001**
-
----
-
-## 🔧 Chạy Development Mode
-
-Mở **2 terminal**:
-
-**Terminal 1 – Backend:**
+**Backend** (cổng 3001):
 ```bash
 cd backend
-npm run dev
+node server.js
 ```
 
-**Terminal 2 – Frontend (hot reload):**
+**Frontend** (cổng 3000):
 ```bash
 cd frontend
 npm run dev
 ```
 
-Truy cập: **http://localhost:3000**
+Truy cập: `http://localhost:3000` hoặc `http://<IP-máy-chủ>:3000`
+
+### 5. Tài khoản mặc định
+
+| Vai trò | Username | Password |
+|---|---|---|
+| Admin | `admin` | `admin123` |
+
+> ⚠️ **Đổi mật khẩu ngay sau lần đăng nhập đầu tiên!**
 
 ---
 
-## 🖥️ Deploy Trên Windows Server
+## 🗂️ Phân Quyền
 
-### Cách 1: Chạy trực tiếp
-
-```powershell
-cd C:\PLC-Control\backend
-npm install
-copy .env.example .env
-# Chỉnh .env
-npm start
-```
-
-### Cách 2: Chạy như Windows Service với PM2
-
-```powershell
-npm install -g pm2
-npm install -g pm2-windows-startup
-
-cd C:\PLC-Control\backend
-pm2 start server.js --name "plc-control"
-pm2 save
-pm2-startup install
-```
-
-### Cách 3: Tạo file start.bat
-
-```batch
-@echo off
-cd /d C:\PLC-Control\backend
-node server.js
-pause
-```
-
-Đặt shortcut vào Startup folder: `Win+R` → `shell:startup`
+| Quyền | Admin | Editor | Viewer |
+|---|:---:|:---:|:---:|
+| Xem file & lịch sử | ✅ | ✅ | ✅ |
+| Upload version mới | ✅ | ✅ | ❌ |
+| Khóa / Mở khóa file | ✅ | ✅ | ❌ |
+| Khôi phục phiên bản | ✅ | ✅ | ❌ |
+| Quản lý người dùng | ✅ | ❌ | ❌ |
+| Xem Audit Log | ✅ | ❌ | ❌ |
+| Backup & Restore DB | ✅ | ❌ | ❌ |
 
 ---
 
-## 🌐 Cấu Hình IP / Port
+## 🔌 API Endpoints Chính
 
-File `backend/.env`:
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| `POST` | `/api/auth/login` | Đăng nhập |
+| `GET` | `/api/files` | Danh sách file |
+| `POST` | `/api/files` | Upload file / version mới |
+| `GET` | `/api/files/:id` | Chi tiết file + lịch sử |
+| `GET` | `/api/versions/diff` | So sánh 2 phiên bản |
+| `POST` | `/api/versions/:id/restore` | Khôi phục phiên bản |
+| `GET` | `/api/versions/:id/download` | Tải về |
+| `POST` | `/api/files/:id/lock` | Khóa file |
+| `POST` | `/api/files/:id/unlock` | Mở khóa file |
+| `GET` | `/api/activity` | Audit log hoạt động |
+| `GET` | `/api/sse/events` | Real-time SSE stream |
+| `GET` | `/api/backups` | Danh sách backup |
+| `POST` | `/api/backups/restore` | Khôi phục từ backup |
+
+---
+
+## 🖥️ Giao Diện
+
+- **Dashboard** — Thống kê tổng quan: số file, phiên bản, dung lượng, hoạt động gần đây
+- **Quản lý File** — Duyệt file theo cấu trúc Line/Machine, tìm kiếm, lọc
+- **Chi tiết File** — Timeline phiên bản dạng Git graph, so sánh diff, khóa file
+- **Diff Fullscreen** — Mở rộng toàn màn hình để đọc diff dễ hơn
+- **Lịch sử Hoạt động** — Audit log toàn hệ thống
+- **Quản lý Người dùng** — Tạo, phân quyền, vô hiệu hoá tài khoản (Admin)
+- **Backup Viewer** — Duyệt và khôi phục file từ snapshot backup
+- **Hồ sơ cá nhân** — Đổi tên, avatar, mật khẩu
+
+---
+
+## 🌐 Triển Khai Trong Mạng LAN
+
+Hệ thống được thiết kế chạy trên HTTP thuần (không cần HTTPS) trong mạng nội bộ:
+
+```bash
+# Chạy backend lắng nghe tất cả interface
+HOST=0.0.0.0 node server.js
+
+# Kỹ sư truy cập từ máy khác trong mạng
+http://192.168.1.100:3000
+```
+
+- ✅ Không cần Internet
+- ✅ Không cần domain hay SSL
+- ✅ Hỗ trợ tên file CJK (Tiếng Trung, Tiếng Việt có dấu)
+- ✅ Tương thích Windows Server & Ubuntu
+
+---
+
+## 📝 Biến Môi Trường
 
 ```env
-# Lắng nghe tất cả network interfaces
-HOST=0.0.0.0
+# backend/.env
 PORT=3001
-```
-
-Truy cập qua: `http://10.x.x.x:3001`
-
-### Mở Firewall Windows
-
-```powershell
-netsh advfirewall firewall add rule name="PLC Control" dir=in action=allow protocol=TCP localport=3001
+JWT_SECRET=your-secret-key-here
+JWT_REFRESH_SECRET=your-refresh-secret-here
+UPLOAD_DIR=./uploads
+DATA_DIR=./data
+BACKUP_DIR=./backups
 ```
 
 ---
 
-## 📊 Database Schema
+## 📄 License
 
-```sql
-users         (id, username, password_hash, display_name, role, avatar_url, is_active, created_at)
-files         (id, name, path, description, created_by, created_at, updated_at, is_deleted, deleted_by, deleted_at)
-versions      (id, file_id, version_number, storage_path, size, checksum, mime_type, is_binary, commit_message, uploaded_by, created_at)
-activity_log  (id, user_id, action, entity_type, entity_id, entity_name, details, created_at)
-refresh_tokens(id, user_id, token_hash, expires_at, created_at)
-```
-
----
-
-## 🔑 Phân Quyền
-
-| Chức năng                | Admin | User/Kỹ sư | Viewer |
-|--------------------------|-------|------------|--------|
-| Xem danh sách file       | ✅    | ✅         | ✅     |
-| Upload file / version    | ✅    | ✅         | ❌     |
-| Xóa file                 | ✅    | ✅ (của mình) | ❌  |
-| Restore phiên bản        | ✅    | ✅         | ❌     |
-| Download file            | ✅    | ✅         | ✅     |
-| Xem lịch sử + diff       | ✅    | ✅         | ✅     |
-| Quản lý người dùng       | ✅    | ❌         | ❌     |
-
----
-
-## 📡 API Reference
-
-### Auth
-```
-POST /api/auth/login         { username, password }
-POST /api/auth/refresh       { refreshToken }
-POST /api/auth/logout        (auth)
-GET  /api/auth/me            (auth)
-```
-
-### Files
-```
-GET    /api/files            (auth) ?search=&page=&limit=
-POST   /api/files            (auth) multipart: file, commitMessage, description, filePath
-GET    /api/files/:id        (auth)
-DELETE /api/files/:id        (auth)
-GET    /api/files/stats      (auth)
-GET    /api/files/activity   (auth) ?page=&limit=&fileId=
-```
-
-### Versions
-```
-GET  /api/versions/:id              (auth)
-GET  /api/versions/:id/download     (auth)
-GET  /api/versions/diff?fromId=&toId= (auth)
-POST /api/versions/:id/restore      (auth)
-```
-
-### Users (Admin)
-```
-GET    /api/users            (admin)
-POST   /api/users            (admin) { username, password, displayName, role }
-PUT    /api/users/:id        (admin)
-DELETE /api/users/:id        (admin)
-PUT    /api/users/me/profile (auth)  { displayName?, avatarUrl? }
-PUT    /api/users/me/password (auth) { currentPassword, newPassword }
-```
-
----
-
-## 🗃️ Quy Tắc Lưu Trữ & Dọn Dẹp
-
-| Quy tắc                         | Mặc định       |
-|---------------------------------|----------------|
-| Giữ tối đa N phiên bản/file     | 10 versions    |
-| Thời gian lưu tối đa            | 365 ngày       |
-| Lịch chạy dọn dẹp               | Hàng ngày 02:00 |
-
-Chỉnh trong `backend/.env`:
-```env
-MAX_VERSIONS_PER_FILE=10
-MAX_RETENTION_DAYS=365
-```
-
----
-
-## 🔒 Bảo Mật
-
-- Mật khẩu hash bằng **bcrypt** (rounds: 10)
-- JWT access token: **8 giờ** / refresh token: **7 ngày**
-- Token rotation trên mỗi refresh
-- Rate limiting: 500 req/15min (API), 30 req/15min (login)
-- HTTP security headers qua **Helmet.js**
-- CORS configurable
-
----
-
-## 📝 Hướng Dẫn Sử Dụng Nhanh
-
-### Đăng nhập lần đầu
-
-- URL: `http://server-ip:3001`
-- Username: `admin` / Password: `Admin@123456`
-- ⚠️ **Đổi mật khẩu ngay!**
-
-### Upload file mới
-
-1. Menu **Quản lý file** → **Tải lên file**
-2. Kéo thả hoặc chọn file
-3. Nhập đường dẫn: `/chuyền-1/máy-A`
-4. Nhập ghi chú thay đổi → **Tải lên**
-
-### Upload phiên bản mới của file đã có
-
-1. Mở chi tiết file → **Tải lên phiên bản mới**
-2. Chọn file cùng tên → Tự động tạo version mới
-
-### So sánh 2 phiên bản
-
-1. Mở chi tiết file
-2. Click chọn 2 node trong biểu đồ commit
-3. Tab **So sánh thay đổi** → **So sánh**
-
-### Khôi phục phiên bản cũ
-
-1. Trong danh sách phiên bản → click icon **Khôi phục**
-2. Xác nhận → Tạo version mới với nội dung cũ
-
----
-
-## 🔧 Troubleshooting
-
-**Lỗi native module trên Windows:**
-```bash
-npm install --global windows-build-tools
-npm install
-```
-
-**Không truy cập từ máy khác:**
-1. Kiểm tra `HOST=0.0.0.0` trong `.env`
-2. Mở port 3001 trong Windows Firewall
-
-**Reset database:**
-```bash
-rm backend/data/plc_control.db
-npm start  # Tự tạo lại DB + admin user
-```
-
----
-
-## 📜 License
-
-MIT License – Tự do sử dụng cho mục đích nội bộ doanh nghiệp.
+Dự án nội bộ — All rights reserved © 2026 Orsted-LTA
