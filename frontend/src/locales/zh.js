@@ -176,6 +176,12 @@ export default {
   actionDeleteFolder: '删除目录',
   actionLockFile: '锁定文件',
   actionUnlockFile: '解锁文件',
+  actionSubscribeFile: '订阅文件',
+  actionUnsubscribeFile: '取消订阅文件',
+  actionAddTags: '添加标签',
+  actionCreateTag: '创建标签',
+  actionDeleteTag: '删除标签',
+  actionAddComment: '添加评论',
   avatarUploaded: '头像上传成功',
   fileTooLarge: '图片最大 5MB',
 

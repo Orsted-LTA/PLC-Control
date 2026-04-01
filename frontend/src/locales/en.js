@@ -176,6 +176,12 @@ export default {
   actionDeleteFolder: 'Delete Folder',
   actionLockFile: 'Lock File',
   actionUnlockFile: 'Unlock File',
+  actionSubscribeFile: 'Subscribe File',
+  actionUnsubscribeFile: 'Unsubscribe File',
+  actionAddTags: 'Add tags',
+  actionCreateTag: 'Create tag',
+  actionDeleteTag: 'Delete tag',
+  actionAddComment: 'Add comment',
   avatarUploaded: 'Avatar uploaded successfully',
   fileTooLarge: 'File size exceeds 5MB limit',
 
