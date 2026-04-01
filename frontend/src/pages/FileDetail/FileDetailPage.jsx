@@ -38,6 +38,18 @@ function isImageMime(mime) {
   return mime && mime.startsWith('image/');
 }
 
+function isVideoMime(mime) {
+  return mime && mime.startsWith('video/');
+}
+
+function isAudioMime(mime) {
+  return mime && mime.startsWith('audio/');
+}
+
+function isPreviewableMime(mime) {
+  return isImageMime(mime) || isVideoMime(mime) || isAudioMime(mime);
+}
+
 // Comment section for a version
 function VersionComments({ versionId, user, isAdmin, canEdit, t }) {
   const [comments, setComments] = useState([]);
@@ -220,21 +232,32 @@ export default function FileDetailPage() {
 
   useEffect(() => { fetchFile(); fetchAllTags(); }, [id]);
 
-  // Load image preview blob URLs for image versions
+  // Load preview blob URLs for image/video/audio versions
   useEffect(() => {
     if (!file) return;
-    const imageVersions = file.versions.filter(v => isImageMime(v.mimeType));
+    const MAX_MEDIA_PREVIEW_SIZE_BYTES = 200 * 1024 * 1024;
+    const previewableVersions = file.versions.filter(v => isPreviewableMime(v.mimeType));
     const pendingUrls = [];
-    imageVersions.forEach(async (v) => {
-      if (previewBlobUrls[v.id]) return;
-      try {
-        const res = await api.get(`/versions/${v.id}/preview`, { responseType: 'blob', timeout: 30000 });
-        const url = URL.createObjectURL(res.data);
-        pendingUrls.push(url);
-        setPreviewBlobUrls(prev => ({ ...prev, [v.id]: url }));
-      } catch { /* ignore */ }
-    });
+    let cancelled = false;
+
+    (async () => {
+      for (const v of previewableVersions) {
+        if (cancelled) break;
+        if (previewBlobUrls[v.id]) continue;
+        // Skip video/audio files larger than MAX_MEDIA_PREVIEW_SIZE_BYTES to avoid memory issues
+        if ((isVideoMime(v.mimeType) || isAudioMime(v.mimeType)) && v.size && v.size > MAX_MEDIA_PREVIEW_SIZE_BYTES) continue;
+        try {
+          const res = await api.get(`/versions/${v.id}/preview`, { responseType: 'blob', timeout: 60000 });
+          if (cancelled) break;
+          const url = URL.createObjectURL(res.data);
+          pendingUrls.push(url);
+          setPreviewBlobUrls(prev => ({ ...prev, [v.id]: url }));
+        } catch { /* ignore */ }
+      }
+    })();
+
     return () => {
+      cancelled = true;
       pendingUrls.forEach(url => URL.revokeObjectURL(url));
     };
   }, [file?.versions?.length]);
@@ -444,7 +467,7 @@ export default function FileDetailPage() {
   };
 
   const latestVersion = file.versions[0];
-  const hasImageVersions = file.versions.some(v => isImageMime(v.mimeType));
+  const hasPreviewableVersions = file.versions.some(v => isPreviewableMime(v.mimeType));
 
 
   const tabItems = [
@@ -519,23 +542,47 @@ export default function FileDetailPage() {
         </div>
       ),
     },
-    ...(hasImageVersions ? [{
+    ...(hasPreviewableVersions ? [{
       key: 'preview',
       label: t('preview'),
       children: (
         <div>
           <Row gutter={16}>
-            {file.versions.filter(v => isImageMime(v.mimeType)).slice(0, 6).map(v => (
-              <Col key={v.id} xs={24} sm={12} md={8} style={{ marginBottom: 16 }}>
+            {file.versions.filter(v => isPreviewableMime(v.mimeType)).slice(0, 6).map(v => (
+              <Col key={v.id} xs={24} sm={12} md={isAudioMime(v.mimeType) ? 24 : 8} style={{ marginBottom: 16 }}>
                 <Card size="small" title={<Space><Tag color="blue">v{v.versionNumber}</Tag><Text style={{ fontSize: 12 }}>{v.uploadedBy}</Text></Space>}>
-                  {previewBlobUrls[v.id] ? (
-                    <Image
-                      src={previewBlobUrls[v.id]}
-                      style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain' }}
-                      preview={{ src: previewBlobUrls[v.id] }}
-                    />
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: 20 }}><Spin /></div>
+                  {isImageMime(v.mimeType) && (
+                    previewBlobUrls[v.id] ? (
+                      <Image
+                        src={previewBlobUrls[v.id]}
+                        style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain' }}
+                        preview={{ src: previewBlobUrls[v.id] }}
+                      />
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: 20 }}><Spin /></div>
+                    )
+                  )}
+                  {isVideoMime(v.mimeType) && (
+                    previewBlobUrls[v.id] ? (
+                      <video
+                        src={previewBlobUrls[v.id]}
+                        controls
+                        style={{ maxWidth: '100%', maxHeight: 200 }}
+                      />
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: 20 }}><Spin /></div>
+                    )
+                  )}
+                  {isAudioMime(v.mimeType) && (
+                    previewBlobUrls[v.id] ? (
+                      <audio
+                        src={previewBlobUrls[v.id]}
+                        controls
+                        style={{ width: '100%' }}
+                      />
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: 20 }}><Spin /></div>
+                    )
                   )}
                   <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>{dayjs(v.createdAt).format('YYYY-MM-DD HH:mm')}</div>
                 </Card>
@@ -745,6 +792,12 @@ export default function FileDetailPage() {
                                     <Tag color="blue" style={{ margin: 0 }}>v{v.versionNumber}</Tag>
                                     {isImageMime(v.mimeType) && previewBlobUrls[v.id] && (
                                       <img src={previewBlobUrls[v.id]} alt="thumb" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 2, verticalAlign: 'middle' }} />
+                                    )}
+                                    {isVideoMime(v.mimeType) && (
+                                      <span style={{ fontSize: 16 }}>🎬</span>
+                                    )}
+                                    {isAudioMime(v.mimeType) && (
+                                      <span style={{ fontSize: 16 }}>🎵</span>
                                     )}
                                     <Text style={{ fontSize: 12 }}>{v.commitMessage || `Version ${v.versionNumber}`}</Text>
                                   </Space>

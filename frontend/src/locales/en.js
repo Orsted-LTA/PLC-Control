@@ -295,4 +295,9 @@ export default {
   preview: 'Preview',
   imagePreview: 'Image Preview',
   notImageFile: 'This file is not an image and cannot be previewed',
+  videoPreview: 'Video Preview',
+  audioPreview: 'Audio Preview',
+  notVideoFile: 'This file is not a video',
+  notAudioFile: 'This file is not an audio file',
+  mediaPreview: 'Media Preview',
 };
