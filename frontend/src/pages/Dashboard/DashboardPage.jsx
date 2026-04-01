@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Typography, Spin, Space, Avatar, Button, Popconfirm, message } from 'antd';
+import { Row, Col, Card, Statistic, Table, Tag, Typography, Spin, Space, Avatar, Button, Popconfirm, message, DatePicker, Select } from 'antd';
 import {
   FileOutlined, HistoryOutlined, TeamOutlined,
-  DatabaseOutlined, UserOutlined, CloudUploadOutlined, DeleteOutlined, EyeOutlined,
+  DatabaseOutlined, UserOutlined, CloudUploadOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -12,6 +12,7 @@ import { useLang } from '../../contexts/LangContext';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { Title, Text } = Typography;
+const { RangePicker } = DatePicker;
 
 const ACTION_COLORS = {
   add_file: 'success',
@@ -43,6 +44,8 @@ export default function DashboardPage() {
   const [backups, setBackups] = useState([]);
   const [backupLoading, setBackupLoading] = useState(false);
   const [backupsLoading, setBackupsLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportDateRange, setExportDateRange] = useState(null);
   const { t } = useLang();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -88,6 +91,29 @@ export default function DashboardPage() {
       fetchBackups();
     } catch (err) {
       message.error(err.response?.data?.message || t('error'));
+    }
+  };
+
+  const handleExportCSV = async () => {
+    setExportLoading(true);
+    try {
+      const params = {};
+      if (exportDateRange && exportDateRange[0]) params.from = exportDateRange[0].toISOString();
+      if (exportDateRange && exportDateRange[1]) params.to = exportDateRange[1].toISOString();
+      const res = await api.get('/files/activity/export', { params, responseType: 'blob' });
+      const dateStr = dayjs().format('YYYY-MM-DD');
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `activity_log_${dateStr}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      message.error(err.response?.data?.message || t('error'));
+    } finally {
+      setExportLoading(false);
     }
   };
 
@@ -189,7 +215,27 @@ export default function DashboardPage() {
       </Row>
 
       {/* Recent Activity */}
-      <Card title={t('recentActivity')} style={{ marginBottom: isAdmin ? 24 : 0 }}>
+      <Card
+        title={t('recentActivity')}
+        style={{ marginBottom: isAdmin ? 24 : 0 }}
+        extra={isAdmin && (
+          <Space>
+            <RangePicker
+              size="small"
+              onChange={setExportDateRange}
+              allowEmpty={[true, true]}
+            />
+            <Button
+              size="small"
+              icon={<DownloadOutlined />}
+              loading={exportLoading}
+              onClick={handleExportCSV}
+            >
+              {t('exportCSV')}
+            </Button>
+          </Space>
+        )}
+      >
         <Table
           dataSource={data?.recentActivity || []}
           rowKey="id"

@@ -5,7 +5,7 @@ import {
 } from 'antd';
 import {
   UploadOutlined, PlusOutlined, SearchOutlined,
-  DeleteOutlined, EyeOutlined, InboxOutlined, FolderOutlined, LockOutlined,
+  DeleteOutlined, EyeOutlined, InboxOutlined, FolderOutlined, LockOutlined, TagOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -41,6 +41,8 @@ export default function FilesPage() {
   const foldersRef = useRef({ lines: [] });
   const [uploadLineId, setUploadLineId] = useState(null);
   const [uploadMachineId, setUploadMachineId] = useState(null);
+  const [allTags, setAllTags] = useState([]);
+  const [filterTagId, setFilterTagId] = useState(null);
 
   const { t } = useLang();
   const { canEdit, isAdmin } = useAuth();
@@ -54,6 +56,13 @@ export default function FilesPage() {
     } catch {
       // silently ignore
     }
+  }, []);
+
+  const fetchTags = useCallback(async () => {
+    try {
+      const res = await api.get('/tags');
+      setAllTags(res.data);
+    } catch { /* ignore */ }
   }, []);
 
   const fetchFiles = useCallback(async () => {
@@ -72,19 +81,24 @@ export default function FilesPage() {
           data = data.filter(f => f.folderId && machineIds.has(f.folderId));
         }
       }
+      // client-side filter by tag
+      if (filterTagId) {
+        data = data.filter(f => (f.tags || []).some(tag => tag.id === filterTagId));
+      }
       setFiles(data);
       setTotal(filterLineId && !filterMachineId ? data.length : res.data.total);
     } finally {
       setLoading(false);
     }
-  }, [page, search, filterLineId, filterMachineId]);
+  }, [page, search, filterLineId, filterMachineId, filterTagId]);
 
-  useEffect(() => { fetchFolders(); }, []);
+  useEffect(() => { fetchFolders(); fetchTags(); }, []);
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
   const handleSearch = (value) => { setSearch(value); setPage(1); };
   const handleFilterLine = (value) => { setFilterLineId(value || null); setFilterMachineId(null); setPage(1); };
   const handleFilterMachine = (value) => { setFilterMachineId(value || null); setPage(1); };
+  const handleFilterTag = (value) => { setFilterTagId(value || null); setPage(1); };
 
   const handleUpload = async (values) => {
     if (!fileList.length) { message.error(t('selectFile')); return; }
@@ -138,16 +152,23 @@ export default function FilesPage() {
       title: t('fileName'),
       dataIndex: 'name',
       render: (name, record) => (
-        <Space size={4}>
-          <Button type="link" style={{ padding: 0 }} onClick={() => navigate(`/files/${record.id}`)}>
-            {name}
-          </Button>
-          {record.lockedBy && (
-            <Tooltip title={`${t('fileLockedBy')}: ${record.lockedByName || record.lockedBy}`}>
-              <LockOutlined style={{ color: '#faad14', fontSize: 13 }} />
-            </Tooltip>
+        <div>
+          <Space size={4}>
+            <Button type="link" style={{ padding: 0 }} onClick={() => navigate(`/files/${record.id}`)}>
+              {name}
+            </Button>
+            {record.lockedBy && (
+              <Tooltip title={`${t('fileLockedBy')}: ${record.lockedByName || record.lockedBy}`}>
+                <LockOutlined style={{ color: '#faad14', fontSize: 13 }} />
+              </Tooltip>
+            )}
+          </Space>
+          {(record.tags || []).length > 0 && (
+            <div style={{ marginTop: 2 }}>
+              {record.tags.map(tag => <Tag key={tag.id} color={tag.color} style={{ marginBottom: 2, fontSize: 11 }}>{tag.name}</Tag>)}
+            </div>
           )}
-        </Space>
+        </div>
       ),
     },
     {
@@ -254,6 +275,25 @@ export default function FilesPage() {
               value={filterMachineId}
             >
               {filterMachines.map(m => <Option key={m.id} value={m.id}>{m.name}</Option>)}
+            </Select>
+          )}
+          {allTags.length > 0 && (
+            <Select
+              allowClear
+              placeholder={t('filterByTag')}
+              style={{ width: 160 }}
+              onChange={handleFilterTag}
+              value={filterTagId}
+              suffixIcon={<TagOutlined />}
+            >
+              {allTags.map(tag => (
+                <Option key={tag.id} value={tag.id}>
+                  <Space size={4}>
+                    <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: tag.color }} />
+                    {tag.name}
+                  </Space>
+                </Option>
+              ))}
             </Select>
           )}
         </div>

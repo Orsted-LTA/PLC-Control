@@ -184,6 +184,7 @@ async function restoreVersion(req, res) {
   const config = require('../config');
   const { computeChecksum, detectBinary } = require('../utils/fileUtils');
   const { broadcast } = require('../utils/notifications');
+  const { notifyFileSubscribers } = require('./subscriptionController');
 
   const db = getDb();
   const version = db.prepare('SELECT * FROM versions WHERE id = ?').get(req.params.id);
@@ -240,10 +241,53 @@ async function restoreVersion(req, res) {
     timestamp: new Date().toISOString(),
   });
 
+  // Notify subscribers
+  notifyFileSubscribers(
+    file.id,
+    file.name,
+    req.user.id,
+    `File restored: ${file.name}`,
+    `${req.user.display_name || req.user.username} restored v${version.version_number} as v${newVersionNumber}`
+  );
+
   res.json({
     message: `Restored to v${version.version_number} as new v${newVersionNumber}`,
     version: { id: newVersionId, versionNumber: newVersionNumber },
   });
 }
 
-module.exports = { getVersion, downloadVersion, diffVersions, restoreVersion };
+async function previewVersion(req, res) {
+  const db = getDb();
+  const version = db.prepare(`
+    SELECT v.*, f.name as file_name
+    FROM versions v
+    LEFT JOIN files f ON v.file_id = f.id
+    WHERE v.id = ?
+  `).get(req.params.id);
+
+  if (!version) return res.status(404).json({ message: 'Version not found' });
+
+  const mime = version.mime_type || '';
+  if (!mime.startsWith('image/')) {
+    return res.status(415).json({ message: 'Unsupported Media Type: not an image' });
+  }
+
+  if (!fs.existsSync(version.storage_path)) {
+    return res.status(410).json({ message: 'Version file not found on disk' });
+  }
+
+  const fileStat = fs.statSync(version.storage_path);
+  res.setHeader('Content-Type', mime);
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(version.file_name || 'preview')}"`);
+  res.setHeader('Content-Length', fileStat.size);
+
+  const stream = fs.createReadStream(version.storage_path);
+  stream.on('error', (err) => {
+    logger.error('Failed to stream preview', { error: err.message, versionId: version.id });
+    if (!res.headersSent) res.status(500).json({ message: 'Failed to stream preview' });
+    else res.destroy(err);
+  });
+  stream.pipe(res);
+}
+
+module.exports = { getVersion, downloadVersion, diffVersions, restoreVersion, previewVersion };

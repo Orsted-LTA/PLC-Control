@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card, Typography, Tag, Button, Space, Modal, Upload, Form, Input,
   message, Popconfirm, Row, Col, Descriptions, Divider, Spin, Tabs,
-  Tooltip, Badge, Alert,
+  Tooltip, Badge, Alert, Select, ColorPicker, Avatar, List, Image,
 } from 'antd';
 import {
   ArrowLeftOutlined, UploadOutlined, DownloadOutlined, SwapOutlined,
   RollbackOutlined, InboxOutlined, TagOutlined, FolderOutlined,
   LockOutlined, UnlockOutlined, ExpandOutlined, ShrinkOutlined,
+  BellOutlined, BellFilled, CommentOutlined, PlusOutlined, EditOutlined,
+  DeleteOutlined, EyeOutlined, UserOutlined, CheckOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -20,6 +22,9 @@ import FileDiff from '../../components/FileDiff/FileDiff';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
+const { TextArea } = Input;
+
+const PRESET_COLORS = ['#f5222d','#fa541c','#fa8c16','#fadb14','#52c41a','#13c2c2','#1677ff','#722ed1','#eb2f96','#8c8c8c'];
 
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return '-';
@@ -27,6 +32,133 @@ function formatBytes(bytes) {
   const units = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+}
+
+function isImageMime(mime) {
+  return mime && mime.startsWith('image/');
+}
+
+// Comment section for a version
+function VersionComments({ versionId, user, isAdmin, canEdit, t }) {
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [sending, setSending] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editContent, setEditContent] = useState('');
+
+  const fetchComments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/versions/${versionId}/comments`);
+      setComments(res.data);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }, [versionId]);
+
+  useEffect(() => { fetchComments(); }, [fetchComments]);
+
+  const handleSend = async () => {
+    if (!newComment.trim()) { message.warning(t('commentEmpty')); return; }
+    setSending(true);
+    try {
+      const res = await api.post(`/versions/${versionId}/comments`, { content: newComment.trim() });
+      setComments(prev => [...prev, res.data]);
+      setNewComment('');
+    } catch (err) { message.error(err.response?.data?.message || t('error')); }
+    finally { setSending(false); }
+  };
+
+  const handleDelete = async (commentId) => {
+    try {
+      await api.delete(`/versions/comments/${commentId}`);
+      setComments(prev => prev.filter(c => c.id !== commentId));
+      message.success(t('commentDeleted'));
+    } catch (err) { message.error(err.response?.data?.message || t('error')); }
+  };
+
+  const handleEdit = async (commentId) => {
+    if (!editContent.trim()) { message.warning(t('commentEmpty')); return; }
+    try {
+      await api.put(`/versions/comments/${commentId}`, { content: editContent.trim() });
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: editContent.trim() } : c));
+      setEditId(null);
+      setEditContent('');
+      message.success(t('commentUpdated'));
+    } catch (err) { message.error(err.response?.data?.message || t('error')); }
+  };
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      {loading ? <Spin size="small" /> : (
+        comments.length === 0 ? (
+          <Text type="secondary" style={{ fontSize: 12 }}>{t('noComments')}</Text>
+        ) : (
+          <List
+            size="small"
+            dataSource={comments}
+            renderItem={c => (
+              <List.Item
+                style={{ padding: '6px 0', alignItems: 'flex-start' }}
+                actions={
+                  (c.userId === user?.id || isAdmin) ? [
+                    <Button
+                      key="edit"
+                      type="text"
+                      size="small"
+                      icon={<EditOutlined />}
+                      onClick={() => { setEditId(c.id); setEditContent(c.content); }}
+                    />,
+                    <Popconfirm
+                      key="del"
+                      title={t('deleteCommentConfirm')}
+                      onConfirm={() => handleDelete(c.id)}
+                      okText={t('yes')}
+                      cancelText={t('no')}
+                    >
+                      <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>,
+                  ] : []
+                }
+              >
+                <List.Item.Meta
+                  avatar={<Avatar icon={<UserOutlined />} size="small" style={{ background: '#1677ff' }} />}
+                  title={<span style={{ fontSize: 12 }}><strong>{c.userName}</strong> <Text type="secondary" style={{ fontSize: 11 }}>{dayjs(c.createdAt).format('HH:mm DD/MM/YY')}</Text></span>}
+                  description={
+                    editId === c.id ? (
+                      <Space.Compact style={{ width: '100%' }}>
+                        <Input
+                          size="small"
+                          value={editContent}
+                          onChange={e => setEditContent(e.target.value)}
+                          onPressEnter={() => handleEdit(c.id)}
+                        />
+                        <Button size="small" type="primary" icon={<CheckOutlined />} onClick={() => handleEdit(c.id)} />
+                        <Button size="small" onClick={() => { setEditId(null); setEditContent(''); }}>{t('cancel')}</Button>
+                      </Space.Compact>
+                    ) : (
+                      <span style={{ fontSize: 12 }}>{c.content}</span>
+                    )
+                  }
+                />
+              </List.Item>
+            )}
+          />
+        )
+      )}
+      {/* All authenticated users can add comments */}
+      <Space.Compact style={{ width: '100%', marginTop: 6 }}>
+          <Input
+            size="small"
+            placeholder={t('commentPlaceholder')}
+            value={newComment}
+            onChange={e => setNewComment(e.target.value)}
+            onPressEnter={handleSend}
+          />
+          <Button size="small" type="primary" loading={sending} onClick={handleSend}>{t('commentSend')}</Button>
+        </Space.Compact>
+    </div>
+  );
 }
 
 export default function FileDetailPage() {
@@ -52,11 +184,26 @@ export default function FileDetailPage() {
 
   const [isDiffExpanded, setIsDiffExpanded] = useState(false);
 
+  // Tags
+  const [allTags, setAllTags] = useState([]);
+  const [tagModal, setTagModal] = useState(false);
+  const [createTagModal, setCreateTagModal] = useState(false);
+  const [tagForm] = Form.useForm();
+  const [tagLoading, setTagLoading] = useState(false);
+  const [selectedTagIds, setSelectedTagIds] = useState([]);
+
+  // Subscribe
+  const [subscribeLoading, setSubscribeLoading] = useState(false);
+
+  // Image preview
+  const [previewBlobUrls, setPreviewBlobUrls] = useState({});
+
   const fetchFile = async () => {
     setLoading(true);
     try {
       const res = await api.get(`/files/${id}`);
       setFile(res.data);
+      setSelectedTagIds((res.data.tags || []).map(t => t.id));
     } catch {
       message.error(t('error'));
     } finally {
@@ -64,7 +211,34 @@ export default function FileDetailPage() {
     }
   };
 
-  useEffect(() => { fetchFile(); }, [id]);
+  const fetchAllTags = useCallback(async () => {
+    try {
+      const res = await api.get('/tags');
+      setAllTags(res.data);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { fetchFile(); fetchAllTags(); }, [id]);
+
+  // Load image preview blob URLs for image versions
+  useEffect(() => {
+    if (!file) return;
+    const imageVersions = file.versions.filter(v => isImageMime(v.mimeType));
+    const pendingUrls = [];
+    imageVersions.forEach(async (v) => {
+      if (previewBlobUrls[v.id]) return;
+      try {
+        const res = await api.get(`/versions/${v.id}/preview`, { responseType: 'blob', timeout: 30000 });
+        const url = URL.createObjectURL(res.data);
+        pendingUrls.push(url);
+        setPreviewBlobUrls(prev => ({ ...prev, [v.id]: url }));
+      } catch { /* ignore */ }
+    });
+    return () => {
+      pendingUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [file?.versions?.length]);
+
 
   const handleSelectVersion = (version) => {
     setSelectedVersions(prev => {
@@ -202,7 +376,76 @@ export default function FileDetailPage() {
     }
   };
 
+  // Tag handlers
+  const handleSaveTags = async () => {
+    setTagLoading(true);
+    try {
+      await api.post(`/files/${file.id}/tags`, { tagIds: selectedTagIds });
+      // Remove tags not in selection
+      for (const existingTag of file.tags || []) {
+        if (!selectedTagIds.includes(existingTag.id)) {
+          await api.delete(`/files/${file.id}/tags/${existingTag.id}`);
+        }
+      }
+      message.success(t('tagAdded'));
+      setTagModal(false);
+      fetchFile();
+    } catch (err) {
+      message.error(err.response?.data?.message || t('error'));
+    } finally {
+      setTagLoading(false);
+    }
+  };
+
+  const handleCreateTag = async (values) => {
+    setTagLoading(true);
+    try {
+      const color = typeof values.color === 'string' ? values.color : (values.color?.toHexString ? values.color.toHexString() : '#1677ff');
+      await api.post('/tags', { name: values.name, color });
+      message.success(t('tagCreated'));
+      tagForm.resetFields();
+      setCreateTagModal(false);
+      fetchAllTags();
+    } catch (err) {
+      message.error(err.response?.data?.message || t('error'));
+    } finally {
+      setTagLoading(false);
+    }
+  };
+
+  const handleDeleteTag = async (tagId) => {
+    try {
+      await api.delete(`/tags/${tagId}`);
+      message.success(t('tagDeleted'));
+      fetchAllTags();
+      fetchFile();
+    } catch (err) {
+      message.error(err.response?.data?.message || t('error'));
+    }
+  };
+
+  // Subscribe handlers
+  const handleSubscribe = async () => {
+    setSubscribeLoading(true);
+    try {
+      if (file.isSubscribed) {
+        await api.delete(`/files/${file.id}/subscribe`);
+        message.success(t('unsubscribeSuccess'));
+      } else {
+        await api.post(`/files/${file.id}/subscribe`);
+        message.success(t('subscribeSuccess'));
+      }
+      fetchFile();
+    } catch (err) {
+      message.error(err.response?.data?.message || t('error'));
+    } finally {
+      setSubscribeLoading(false);
+    }
+  };
+
   const latestVersion = file.versions[0];
+  const hasImageVersions = file.versions.some(v => isImageMime(v.mimeType));
+
 
   const tabItems = [
     {
@@ -276,6 +519,32 @@ export default function FileDetailPage() {
         </div>
       ),
     },
+    ...(hasImageVersions ? [{
+      key: 'preview',
+      label: t('preview'),
+      children: (
+        <div>
+          <Row gutter={16}>
+            {file.versions.filter(v => isImageMime(v.mimeType)).slice(0, 6).map(v => (
+              <Col key={v.id} xs={24} sm={12} md={8} style={{ marginBottom: 16 }}>
+                <Card size="small" title={<Space><Tag color="blue">v{v.versionNumber}</Tag><Text style={{ fontSize: 12 }}>{v.uploadedBy}</Text></Space>}>
+                  {previewBlobUrls[v.id] ? (
+                    <Image
+                      src={previewBlobUrls[v.id]}
+                      style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain' }}
+                      preview={{ src: previewBlobUrls[v.id] }}
+                    />
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: 20 }}><Spin /></div>
+                  )}
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>{dayjs(v.createdAt).format('YYYY-MM-DD HH:mm')}</div>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        </div>
+      ),
+    }] : []),
   ];
 
   return (
@@ -327,6 +596,14 @@ export default function FileDetailPage() {
             )}
           </div>
           <Space>
+            {/* Subscribe button */}
+            <Button
+              icon={file.isSubscribed ? <BellFilled style={{ color: '#1677ff' }} /> : <BellOutlined />}
+              loading={subscribeLoading}
+              onClick={handleSubscribe}
+            >
+              {file.isSubscribed ? t('subscribed') : t('subscribe')}
+            </Button>
             {canEdit && !file.lockedBy && (
               <Button
                 icon={<LockOutlined />}
@@ -356,6 +633,24 @@ export default function FileDetailPage() {
                 title={isLockedByOther ? t('cannotUploadLocked') : undefined}
               >
                 {t('uploadNewVersion')}
+              </Button>
+            )}
+          </Space>
+        </div>
+
+        {/* Tags display */}
+        <div style={{ marginTop: 12 }}>
+          <Space wrap>
+            {(file.tags || []).map(tag => (
+              <Tag key={tag.id} color={tag.color} style={{ marginBottom: 4 }}>{tag.name}</Tag>
+            ))}
+            {canEdit && (
+              <Button
+                size="small"
+                icon={<TagOutlined />}
+                onClick={() => { setSelectedTagIds((file.tags || []).map(t => t.id)); setTagModal(true); }}
+              >
+                {t('manageTags')}
               </Button>
             )}
           </Space>
@@ -448,6 +743,9 @@ export default function FileDetailPage() {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 4 }}>
                                   <Space size={4} wrap>
                                     <Tag color="blue" style={{ margin: 0 }}>v{v.versionNumber}</Tag>
+                                    {isImageMime(v.mimeType) && previewBlobUrls[v.id] && (
+                                      <img src={previewBlobUrls[v.id]} alt="thumb" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 2, verticalAlign: 'middle' }} />
+                                    )}
                                     <Text style={{ fontSize: 12 }}>{v.commitMessage || `Version ${v.versionNumber}`}</Text>
                                   </Space>
                                   <Space size={2} style={{ flexShrink: 0 }} onClick={e => e.stopPropagation()}>
@@ -472,6 +770,16 @@ export default function FileDetailPage() {
                                   <Text type="secondary" style={{ fontSize: 11 }}>{v.uploadedBy}</Text>
                                   <Text type="secondary" style={{ fontSize: 11 }}>{dayjs(v.createdAt).format('HH:mm')}</Text>
                                   <Text type="secondary" style={{ fontSize: 11 }}>{formatBytes(v.size)}</Text>
+                                </div>
+                                {/* Version comments */}
+                                <div onClick={e => e.stopPropagation()}>
+                                  <VersionComments
+                                    versionId={v.id}
+                                    user={user}
+                                    isAdmin={isAdmin}
+                                    canEdit={canEdit}
+                                    t={t}
+                                  />
                                 </div>
                               </div>
                             </div>
@@ -572,6 +880,89 @@ export default function FileDetailPage() {
             isExpanded
           />
         )}
+      </Modal>
+
+      {/* Manage tags modal */}
+      <Modal
+        title={t('manageTags')}
+        open={tagModal}
+        onCancel={() => setTagModal(false)}
+        onOk={handleSaveTags}
+        okText={t('save')}
+        cancelText={t('cancel')}
+        confirmLoading={tagLoading}
+      >
+        <div style={{ marginBottom: 12 }}>
+          <Select
+            mode="multiple"
+            style={{ width: '100%' }}
+            placeholder={t('selectTags')}
+            value={selectedTagIds}
+            onChange={setSelectedTagIds}
+            options={allTags.map(tag => ({
+              value: tag.id,
+              label: <Space><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', background: tag.color }} />{tag.name}</Space>,
+            }))}
+          />
+        </div>
+        {canEdit && (
+          <Button size="small" icon={<PlusOutlined />} onClick={() => setCreateTagModal(true)}>
+            {t('createTag')}
+          </Button>
+        )}
+        {isAdmin && allTags.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>{t('tags')}:</Text>
+            <div style={{ marginTop: 4 }}>
+              {allTags.map(tag => (
+                <Space key={tag.id} style={{ marginRight: 8, marginBottom: 4 }}>
+                  <Tag color={tag.color}>{tag.name}</Tag>
+                  <Popconfirm
+                    title={t('deleteTagConfirm')}
+                    onConfirm={() => handleDeleteTag(tag.id)}
+                    okText={t('yes')}
+                    cancelText={t('no')}
+                  >
+                    <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                  </Popconfirm>
+                </Space>
+              ))}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Create tag modal */}
+      <Modal
+        title={t('createTag')}
+        open={createTagModal}
+        onCancel={() => { setCreateTagModal(false); tagForm.resetFields(); }}
+        onOk={() => tagForm.submit()}
+        okText={t('create')}
+        cancelText={t('cancel')}
+        confirmLoading={tagLoading}
+      >
+        <Form form={tagForm} layout="vertical" onFinish={handleCreateTag}>
+          <Form.Item name="name" label={t('tagName')} rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="color" label={t('tagColor')} initialValue="#1677ff">
+            <div>
+              <Space wrap>
+                {PRESET_COLORS.map(c => (
+                  <div
+                    key={c}
+                    onClick={() => tagForm.setFieldValue('color', c)}
+                    style={{
+                      width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer',
+                      border: tagForm.getFieldValue('color') === c ? '3px solid #000' : '2px solid transparent',
+                    }}
+                  />
+                ))}
+              </Space>
+            </div>
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );

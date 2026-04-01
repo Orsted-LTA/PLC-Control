@@ -239,4 +239,54 @@ export default {
   fileUnlockNotif: '文件已解锁',
   noNotifications: '暂无通知',
   clearNotifications: '清除全部',
+
+  // Tags
+  tags: '标签',
+  manageTags: '管理标签',
+  addTag: '添加标签',
+  createTag: '创建标签',
+  tagName: '标签名称',
+  tagColor: '颜色',
+  tagCreated: '标签已创建',
+  tagDeleted: '标签已删除',
+  tagAdded: '标签已添加',
+  tagRemoved: '标签已移除',
+  noTags: '暂无标签',
+  filterByTag: '按标签筛选',
+  deleteTagConfirm: '删除此标签？该标签将从所有文件中移除。',
+  selectTags: '选择标签...',
+
+  // Comments
+  comments: '评论',
+  addComment: '添加评论',
+  editComment: '编辑评论',
+  deleteComment: '删除评论',
+  commentPlaceholder: '写下评论...',
+  commentSend: '发送',
+  commentEmpty: '评论内容不能为空',
+  commentDeleted: '评论已删除',
+  commentUpdated: '评论已更新',
+  noComments: '暂无评论',
+  deleteCommentConfirm: '删除此评论？',
+
+  // Subscriptions
+  subscribe: '关注',
+  unsubscribe: '取消关注',
+  subscribeSuccess: '已关注文件',
+  unsubscribeSuccess: '已取消关注',
+  subscribed: '已关注',
+
+  // Export
+  exportCSV: '导出CSV',
+  exportActivityLog: '导出活动报告',
+  exportFilters: '导出筛选',
+  exportFrom: '开始日期',
+  exportTo: '结束日期',
+  exportUser: '用户',
+  exportDownloading: '下载中...',
+
+  // Preview
+  preview: '预览',
+  imagePreview: '图片预览',
+  notImageFile: '此文件不是图片，无法预览',
 };

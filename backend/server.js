@@ -23,6 +23,9 @@ const fileRoutes = require('./src/routes/files');
 const versionRoutes = require('./src/routes/versions');
 const folderRoutes = require('./src/routes/folders');
 const adminRoutes = require('./src/routes/admin');
+const tagRoutes = require('./src/routes/tags');
+const commentRoutes = require('./src/routes/comments');
+const notificationsRouter = require('./src/routes/notificationsRouter');
 
 // Initialize database
 initDb();
@@ -87,6 +90,9 @@ app.use('/api/files', fileRoutes);
 app.use('/api/versions', versionRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/tags', tagRoutes);
+app.use('/api/versions', commentRoutes);
+app.use('/api/notifications', notificationsRouter);
 
 // SSE notifications endpoint
 app.get('/api/notifications/stream', authenticateToken, (req, res) => {
