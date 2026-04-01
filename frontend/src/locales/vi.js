@@ -295,4 +295,9 @@ export default {
   preview: 'Xem trước',
   imagePreview: 'Xem trước ảnh',
   notImageFile: 'File này không phải ảnh, không thể xem trước',
+  videoPreview: 'Xem trước video',
+  audioPreview: 'Nghe trước audio',
+  notVideoFile: 'File này không phải video',
+  notAudioFile: 'File này không phải audio',
+  mediaPreview: 'Xem/nghe trước media',
 };

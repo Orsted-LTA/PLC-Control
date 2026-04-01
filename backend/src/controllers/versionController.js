@@ -268,8 +268,9 @@ async function previewVersion(req, res) {
   if (!version) return res.status(404).json({ message: 'Version not found' });
 
   const mime = version.mime_type || '';
-  if (!mime.startsWith('image/')) {
-    return res.status(415).json({ message: 'Unsupported Media Type: not an image' });
+  const isPreviewable = mime.startsWith('image/') || mime.startsWith('video/') || mime.startsWith('audio/');
+  if (!isPreviewable) {
+    return res.status(415).json({ message: 'Unsupported Media Type: not previewable' });
   }
 
   if (!fs.existsSync(version.storage_path)) {
@@ -277,17 +278,50 @@ async function previewVersion(req, res) {
   }
 
   const fileStat = fs.statSync(version.storage_path);
-  res.setHeader('Content-Type', mime);
-  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(version.file_name || 'preview')}"`);
-  res.setHeader('Content-Length', fileStat.size);
 
-  const stream = fs.createReadStream(version.storage_path);
-  stream.on('error', (err) => {
-    logger.error('Failed to stream preview', { error: err.message, versionId: version.id });
-    if (!res.headersSent) res.status(500).json({ message: 'Failed to stream preview' });
-    else res.destroy(err);
-  });
-  stream.pipe(res);
+  // Support Range requests for video/audio streaming
+  const range = req.headers.range;
+  if (range && (mime.startsWith('video/') || mime.startsWith('audio/'))) {
+    const fileSize = fileStat.size;
+    const parts = range.replace(/bytes=/, '').split('-');
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+    if (isNaN(start) || isNaN(end) || start < 0 || end >= fileSize || start > end) {
+      res.setHeader('Content-Range', `bytes */${fileSize}`);
+      return res.status(416).json({ message: 'Range Not Satisfiable' });
+    }
+
+    const chunkSize = end - start + 1;
+
+    res.writeHead(206, {
+      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': chunkSize,
+      'Content-Type': mime,
+      'Content-Disposition': `inline; filename="${encodeURIComponent(version.file_name || 'preview')}"`,
+    });
+    const stream = fs.createReadStream(version.storage_path, { start, end });
+    stream.on('error', (err) => {
+      logger.error('Failed to stream preview', { error: err.message, versionId: version.id });
+      if (!res.headersSent) res.status(500).json({ message: 'Failed to stream preview' });
+      else res.destroy(err);
+    });
+    stream.pipe(res);
+  } else {
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(version.file_name || 'preview')}"`);
+    res.setHeader('Content-Length', fileStat.size);
+
+    const stream = fs.createReadStream(version.storage_path);
+    stream.on('error', (err) => {
+      logger.error('Failed to stream preview', { error: err.message, versionId: version.id });
+      if (!res.headersSent) res.status(500).json({ message: 'Failed to stream preview' });
+      else res.destroy(err);
+    });
+    stream.pipe(res);
+  }
 }
 
 module.exports = { getVersion, downloadVersion, diffVersions, restoreVersion, previewVersion };

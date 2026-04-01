@@ -295,4 +295,9 @@ export default {
   preview: '预览',
   imagePreview: '图片预览',
   notImageFile: '此文件不是图片，无法预览',
+  videoPreview: '视频预览',
+  audioPreview: '音频预览',
+  notVideoFile: '此文件不是视频文件',
+  notAudioFile: '此文件不是音频文件',
+  mediaPreview: '媒体预览',
 };
