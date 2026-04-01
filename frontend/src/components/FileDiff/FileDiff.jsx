@@ -12,8 +12,6 @@ export default function FileDiff({ diff, isBinary, isOfficeExtracted, fromVersio
   useEffect(() => {
     if (!diff || isBinary) return;
 
-    // If the ref is not yet attached (e.g. inside a Modal that hasn't mounted yet),
-    // schedule a re-render after a short delay to wait for DOM to be ready.
     if (!containerRef.current) {
       const timer = setTimeout(() => forceUpdate(n => n + 1), 50);
       return () => clearTimeout(timer);
