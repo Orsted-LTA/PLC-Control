@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { notification as antNotification } from 'antd';
 import { useAuth } from './AuthContext';
 import { useLang } from './LangContext';
+import api from '../api';
 
 const NotificationContext = createContext(null);
 
@@ -12,8 +13,12 @@ export function NotificationProvider({ children }) {
   const { t } = useLang();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  // DB notifications (from /api/notifications)
+  const [dbNotifications, setDbNotifications] = useState([]);
+  const [dbUnreadCount, setDbUnreadCount] = useState(0);
   const eventSourceRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+  const pollRef = useRef(null);
 
   const getNotificationMessage = useCallback((event) => {
     const name = event.fileName || '';
@@ -28,6 +33,17 @@ export function NotificationProvider({ children }) {
       default: return name;
     }
   }, [t]);
+
+  const fetchDbNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await api.get('/notifications', { params: { limit: 20 } });
+      setDbNotifications(res.data.data || []);
+      setDbUnreadCount(res.data.unreadCount || 0);
+    } catch {
+      // silently ignore
+    }
+  }, [user]);
 
   const connectSSE = useCallback(() => {
     if (eventSourceRef.current) {
@@ -71,6 +87,8 @@ export function NotificationProvider({ children }) {
           return [newItem, ...prev].slice(0, MAX_NOTIFICATIONS);
         });
         setUnreadCount(prev => prev + 1);
+        // Also refresh DB notifications
+        fetchDbNotifications();
       } catch {
         // ignore parse errors
       }
@@ -86,12 +104,15 @@ export function NotificationProvider({ children }) {
         if (currentToken) connectSSE();
       }, 10000);
     };
-  }, [getNotificationMessage, t]);
+  }, [getNotificationMessage, t, fetchDbNotifications]);
 
   useEffect(() => {
     const userId = user?.id;
     if (userId) {
       connectSSE();
+      fetchDbNotifications();
+      // Poll every 30 seconds
+      pollRef.current = setInterval(fetchDbNotifications, 30000);
     } else {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -101,6 +122,12 @@ export function NotificationProvider({ children }) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      setDbNotifications([]);
+      setDbUnreadCount(0);
     }
     return () => {
       if (eventSourceRef.current) {
@@ -111,12 +138,33 @@ export function NotificationProvider({ children }) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
     };
-  }, [user?.id, connectSSE]);
+  }, [user?.id, connectSSE, fetchDbNotifications]);
 
-  const markAllRead = useCallback(() => {
+  const markAllRead = useCallback(async () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     setUnreadCount(0);
+    try {
+      await api.put('/notifications/read-all');
+      setDbUnreadCount(0);
+      setDbNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch {
+      // silently ignore
+    }
+  }, []);
+
+  const markOneRead = useCallback(async (id) => {
+    try {
+      await api.put(`/notifications/${id}/read`);
+      setDbNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      setDbUnreadCount(prev => Math.max(0, prev - 1));
+    } catch {
+      // silently ignore
+    }
   }, []);
 
   const clearNotifications = useCallback(() => {
@@ -125,7 +173,10 @@ export function NotificationProvider({ children }) {
   }, []);
 
   return (
-    <NotificationContext.Provider value={{ notifications, unreadCount, markAllRead, clearNotifications }}>
+    <NotificationContext.Provider value={{
+      notifications, unreadCount, markAllRead, clearNotifications,
+      dbNotifications, dbUnreadCount, markOneRead, fetchDbNotifications,
+    }}>
       {children}
     </NotificationContext.Provider>
   );
@@ -134,3 +185,4 @@ export function NotificationProvider({ children }) {
 export function useNotifications() {
   return useContext(NotificationContext);
 }
+

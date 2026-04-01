@@ -123,6 +123,66 @@ function createTables() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+
+    -- Feature 1: Tags
+    CREATE TABLE IF NOT EXISTS tags (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      color TEXT NOT NULL DEFAULT '#1677ff',
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS file_tags (
+      file_id TEXT NOT NULL,
+      tag_id TEXT NOT NULL,
+      PRIMARY KEY (file_id, tag_id),
+      FOREIGN KEY (file_id) REFERENCES files(id),
+      FOREIGN KEY (tag_id) REFERENCES tags(id)
+    );
+
+    -- Feature 2: Version comments
+    CREATE TABLE IF NOT EXISTS version_comments (
+      id TEXT PRIMARY KEY,
+      version_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
+      is_deleted INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (version_id) REFERENCES versions(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_version_comments_version_id ON version_comments(version_id);
+
+    -- Feature 3: Subscriptions & notifications
+    CREATE TABLE IF NOT EXISTS file_subscriptions (
+      id TEXT PRIMARY KEY,
+      file_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
+      UNIQUE(file_id, user_id),
+      FOREIGN KEY (file_id) REFERENCES files(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      entity_id TEXT,
+      entity_type TEXT,
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now') || 'Z'),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+    CREATE INDEX IF NOT EXISTS idx_file_subscriptions_file_id ON file_subscriptions(file_id);
   `);
 
   // Safe migration: add folder_id column to files if not present

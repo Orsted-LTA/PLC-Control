@@ -7,6 +7,7 @@ const { computeChecksum, detectBinary } = require('../utils/fileUtils');
 const logger = require('../utils/logger');
 const { runCleanup } = require('../utils/cleanup');
 const { broadcast } = require('../utils/notifications');
+const { notifyFileSubscribers } = require('./subscriptionController');
 
 async function listFiles(req, res) {
   const db = getDb();
@@ -52,6 +53,12 @@ async function listFiles(req, res) {
           ? `${f.parent_folder_name} / ${f.folder_name}`
           : f.folder_name;
       }
+      const tags = db.prepare(`
+        SELECT t.id, t.name, t.color FROM tags t
+        JOIN file_tags ft ON ft.tag_id = t.id
+        WHERE ft.file_id = ?
+      `).all(f.id);
+      const sub = db.prepare('SELECT id FROM file_subscriptions WHERE file_id = ? AND user_id = ?').get(f.id, req.user.id);
       return {
         id: f.id,
         name: f.name,
@@ -68,6 +75,8 @@ async function listFiles(req, res) {
         lockedBy: f.locked_by || null,
         lockedAt: f.locked_at || null,
         lockReason: f.lock_reason || null,
+        tags,
+        isSubscribed: !!sub,
       };
     }),
     total,
@@ -221,6 +230,18 @@ async function uploadFile(req, res) {
     timestamp: new Date().toISOString(),
   });
 
+  // Notify subscribers (if updating existing file)
+  if (!isNewFile) {
+    const uploaderName = req.user.display_name || req.user.username;
+    notifyFileSubscribers(
+      file.id,
+      originalName,
+      req.user.id,
+      `File updated: ${originalName}`,
+      `${uploaderName} uploaded version v${versionNumber}${commitMessage ? ': ' + commitMessage : ''}`
+    );
+  }
+
   // Run cleanup asynchronously
   setImmediate(() => {
     try { runCleanup(); } catch (err) { logger.warn('Post-upload cleanup failed', { error: err.message }); }
@@ -271,6 +292,16 @@ async function getFile(req, res) {
     lockedByName = locker?.display_name || null;
   }
 
+  // Fetch tags for this file
+  const fileTags = db.prepare(`
+    SELECT t.id, t.name, t.color FROM tags t
+    JOIN file_tags ft ON ft.tag_id = t.id
+    WHERE ft.file_id = ?
+  `).all(file.id);
+
+  // Check if current user is subscribed
+  const sub = db.prepare('SELECT id FROM file_subscriptions WHERE file_id = ? AND user_id = ?').get(file.id, req.user.id);
+
   res.json({
     id: file.id,
     name: file.name,
@@ -288,6 +319,8 @@ async function getFile(req, res) {
     lockedByName,
     lockedAt: file.locked_at || null,
     lockReason: file.lock_reason || null,
+    tags: fileTags,
+    isSubscribed: !!sub,
     versions: versions.map(v => ({
       id: v.id,
       versionNumber: v.version_number,
@@ -432,7 +465,72 @@ async function getDashboardStats(req, res) {
   });
 }
 
-module.exports = { listFiles, uploadFile, getFile, deleteFile, getActivityLog, getDashboardStats, lockFile, unlockFile };
+async function exportActivityLog(req, res) {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+
+  const db = getDb();
+  const { from, to, userId, fileId } = req.query;
+
+  let query = `
+    SELECT a.created_at, u.display_name as user_name, a.action, a.entity_type, a.entity_name, a.details
+    FROM activity_log a
+    LEFT JOIN users u ON a.user_id = u.id
+    WHERE 1=1
+  `;
+  const params = [];
+
+  if (from) { query += ' AND a.created_at >= ?'; params.push(from); }
+  if (to) { query += ' AND a.created_at <= ?'; params.push(to); }
+  if (userId) { query += ' AND a.user_id = ?'; params.push(userId); }
+  if (fileId) { query += ' AND a.entity_id = ?'; params.push(fileId); }
+
+  query += ' ORDER BY a.created_at DESC';
+
+  const rows = db.prepare(query).all(...params);
+
+  const actionMap = {
+    add_file: 'Add File', update_file: 'Update File', delete_file: 'Delete File',
+    restore_version: 'Restore Version', lock_file: 'Lock File', unlock_file: 'Unlock File',
+    create_user: 'Create User', update_user: 'Update User', delete_user: 'Delete User',
+    login: 'Login', logout: 'Logout', subscribe_file: 'Subscribe', unsubscribe_file: 'Unsubscribe',
+    add_comment: 'Add Comment', create_tag: 'Create Tag', delete_tag: 'Delete Tag', add_file_tags: 'Add Tags',
+  };
+
+  const escapeCSV = (val) => {
+    if (val === null || val === undefined) return '';
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  };
+
+  const headers = ['Thời gian', 'Người dùng', 'Hành động', 'Loại đối tượng', 'Tên đối tượng', 'Chi tiết'];
+  const lines = [headers.map(escapeCSV).join(',')];
+
+  for (const row of rows) {
+    const details = row.details ? (() => { try { return JSON.stringify(JSON.parse(row.details)); } catch { return row.details; } })() : '';
+    lines.push([
+      escapeCSV(row.created_at),
+      escapeCSV(row.user_name),
+      escapeCSV(actionMap[row.action] || row.action),
+      escapeCSV(row.entity_type),
+      escapeCSV(row.entity_name),
+      escapeCSV(details),
+    ].join(','));
+  }
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  const csv = '\uFEFF' + lines.join('\r\n');
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="activity_log_${dateStr}.csv"`);
+  res.send(csv);
+}
+
+module.exports = { listFiles, uploadFile, getFile, deleteFile, getActivityLog, getDashboardStats, lockFile, unlockFile, exportActivityLog };
 
 async function lockFile(req, res) {
   const db = getDb();

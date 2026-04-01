@@ -239,4 +239,54 @@ export default {
   fileUnlockNotif: 'File unlocked',
   noNotifications: 'No notifications',
   clearNotifications: 'Clear All',
+
+  // Tags
+  tags: 'Tags',
+  manageTags: 'Manage Tags',
+  addTag: 'Add Tag',
+  createTag: 'Create Tag',
+  tagName: 'Tag Name',
+  tagColor: 'Color',
+  tagCreated: 'Tag created',
+  tagDeleted: 'Tag deleted',
+  tagAdded: 'Tag added',
+  tagRemoved: 'Tag removed',
+  noTags: 'No tags',
+  filterByTag: 'Filter by tag',
+  deleteTagConfirm: 'Delete this tag? It will be removed from all files.',
+  selectTags: 'Select tags...',
+
+  // Comments
+  comments: 'Comments',
+  addComment: 'Add Comment',
+  editComment: 'Edit Comment',
+  deleteComment: 'Delete Comment',
+  commentPlaceholder: 'Write a comment...',
+  commentSend: 'Send',
+  commentEmpty: 'Comment cannot be empty',
+  commentDeleted: 'Comment deleted',
+  commentUpdated: 'Comment updated',
+  noComments: 'No comments yet',
+  deleteCommentConfirm: 'Delete this comment?',
+
+  // Subscriptions
+  subscribe: 'Follow',
+  unsubscribe: 'Unfollow',
+  subscribeSuccess: 'Following file',
+  unsubscribeSuccess: 'Unfollowed file',
+  subscribed: 'Following',
+
+  // Export
+  exportCSV: 'Export CSV',
+  exportActivityLog: 'Export Activity Report',
+  exportFilters: 'Export Filters',
+  exportFrom: 'From date',
+  exportTo: 'To date',
+  exportUser: 'User',
+  exportDownloading: 'Downloading...',
+
+  // Preview
+  preview: 'Preview',
+  imagePreview: 'Image Preview',
+  notImageFile: 'This file is not an image and cannot be previewed',
 };

@@ -239,4 +239,54 @@ export default {
   fileUnlockNotif: 'File đã được mở khóa',
   noNotifications: 'Không có thông báo',
   clearNotifications: 'Xóa tất cả',
+
+  // Tags
+  tags: 'Nhãn',
+  manageTags: 'Quản lý nhãn',
+  addTag: 'Thêm nhãn',
+  createTag: 'Tạo nhãn mới',
+  tagName: 'Tên nhãn',
+  tagColor: 'Màu',
+  tagCreated: 'Đã tạo nhãn',
+  tagDeleted: 'Đã xóa nhãn',
+  tagAdded: 'Đã gán nhãn',
+  tagRemoved: 'Đã gỡ nhãn',
+  noTags: 'Chưa có nhãn',
+  filterByTag: 'Lọc theo nhãn',
+  deleteTagConfirm: 'Xóa nhãn này? Nhãn sẽ bị gỡ khỏi tất cả file.',
+  selectTags: 'Chọn nhãn...',
+
+  // Comments
+  comments: 'Bình luận',
+  addComment: 'Thêm bình luận',
+  editComment: 'Sửa bình luận',
+  deleteComment: 'Xóa bình luận',
+  commentPlaceholder: 'Nhập bình luận...',
+  commentSend: 'Gửi',
+  commentEmpty: 'Nội dung bình luận không được để trống',
+  commentDeleted: 'Đã xóa bình luận',
+  commentUpdated: 'Đã cập nhật bình luận',
+  noComments: 'Chưa có bình luận nào',
+  deleteCommentConfirm: 'Xóa bình luận này?',
+
+  // Subscriptions
+  subscribe: 'Theo dõi',
+  unsubscribe: 'Hủy theo dõi',
+  subscribeSuccess: 'Đã theo dõi file',
+  unsubscribeSuccess: 'Đã hủy theo dõi file',
+  subscribed: 'Đang theo dõi',
+
+  // Export
+  exportCSV: 'Xuất CSV',
+  exportActivityLog: 'Xuất báo cáo hoạt động',
+  exportFilters: 'Bộ lọc xuất báo cáo',
+  exportFrom: 'Từ ngày',
+  exportTo: 'Đến ngày',
+  exportUser: 'Người dùng',
+  exportDownloading: 'Đang tải...',
+
+  // Preview
+  preview: 'Xem trước',
+  imagePreview: 'Xem trước ảnh',
+  notImageFile: 'File này không phải ảnh, không thể xem trước',
 };

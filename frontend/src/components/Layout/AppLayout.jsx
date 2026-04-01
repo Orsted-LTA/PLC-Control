@@ -27,7 +27,8 @@ export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout, isAdmin } = useAuth();
   const { t, lang, switchLang } = useLang();
-  const { notifications, unreadCount, markAllRead, clearNotifications } = useNotifications();
+  const { notifications, unreadCount, markAllRead, clearNotifications, dbNotifications, dbUnreadCount } = useNotifications();
+  const totalUnread = unreadCount + dbUnreadCount;
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -182,17 +183,20 @@ export default function AppLayout() {
                       </Button>
                     )}
                   </div>
-                  {notifications.length === 0 ? (
+                  {dbNotifications.length === 0 && notifications.length === 0 ? (
                     <Empty description={t('noNotifications')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
                   ) : (
                     <List
                       size="small"
-                      dataSource={notifications.slice(0, 20)}
+                      dataSource={[
+                        ...dbNotifications.map(n => ({ id: n.id, message: n.message, timestamp: n.createdAt, isRead: n.isRead, source: 'db' })),
+                        ...notifications.filter(n => !n.read).map(n => ({ id: n.id, message: n.message, timestamp: n.timestamp, isRead: false, source: 'sse' })),
+                      ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 20)}
                       style={{ maxHeight: 360, overflow: 'auto' }}
                       renderItem={(item) => (
                         <List.Item style={{ padding: '6px 0' }}>
-                          <div>
-                            <div style={{ fontSize: 13 }}>{item.message}</div>
+                          <div style={{ width: '100%' }}>
+                            <div style={{ fontSize: 13, fontWeight: item.isRead ? 400 : 600 }}>{item.message}</div>
                             <div style={{ fontSize: 11, color: '#8c8c8c' }}>
                               {dayjs(item.timestamp).format('HH:mm DD/MM')}
                             </div>
@@ -204,7 +208,7 @@ export default function AppLayout() {
                 </div>
               }
             >
-              <Badge count={unreadCount} size="small" offset={[-2, 2]}>
+              <Badge count={totalUnread} size="small" offset={[-2, 2]}>
                 <Button
                   type="text"
                   icon={<BellOutlined style={{ fontSize: 18 }} />}
