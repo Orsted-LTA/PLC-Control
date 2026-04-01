@@ -146,8 +146,8 @@ function VersionComments({ versionId, user, isAdmin, canEdit, t }) {
           />
         )
       )}
-      {(canEdit || true) && (
-        <Space.Compact style={{ width: '100%', marginTop: 6 }}>
+      {/* All authenticated users can add comments */}
+      <Space.Compact style={{ width: '100%', marginTop: 6 }}>
           <Input
             size="small"
             placeholder={t('commentPlaceholder')}
@@ -157,7 +157,6 @@ function VersionComments({ versionId, user, isAdmin, canEdit, t }) {
           />
           <Button size="small" type="primary" loading={sending} onClick={handleSend}>{t('commentSend')}</Button>
         </Space.Compact>
-      )}
     </div>
   );
 }
@@ -225,15 +224,19 @@ export default function FileDetailPage() {
   useEffect(() => {
     if (!file) return;
     const imageVersions = file.versions.filter(v => isImageMime(v.mimeType));
+    const pendingUrls = [];
     imageVersions.forEach(async (v) => {
       if (previewBlobUrls[v.id]) return;
       try {
         const res = await api.get(`/versions/${v.id}/preview`, { responseType: 'blob', timeout: 30000 });
         const url = URL.createObjectURL(res.data);
+        pendingUrls.push(url);
         setPreviewBlobUrls(prev => ({ ...prev, [v.id]: url }));
       } catch { /* ignore */ }
     });
-    return () => {};
+    return () => {
+      pendingUrls.forEach(url => URL.revokeObjectURL(url));
+    };
   }, [file?.versions?.length]);
 
 

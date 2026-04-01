@@ -530,8 +530,6 @@ async function exportActivityLog(req, res) {
   res.send(csv);
 }
 
-module.exports = { listFiles, uploadFile, getFile, deleteFile, getActivityLog, getDashboardStats, lockFile, unlockFile, exportActivityLog };
-
 async function lockFile(req, res) {
   const db = getDb();
   const file = db.prepare('SELECT * FROM files WHERE id = ? AND is_deleted = 0').get(req.params.id);
@@ -604,3 +602,5 @@ async function unlockFile(req, res) {
   logger.info('File unlocked', { fileId: file.id, userId: req.user.id });
   res.json({ message: 'File unlocked successfully' });
 }
+
+module.exports = { listFiles, uploadFile, getFile, deleteFile, getActivityLog, getDashboardStats, lockFile, unlockFile, exportActivityLog };
