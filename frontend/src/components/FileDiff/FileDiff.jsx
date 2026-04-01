@@ -1,6 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Typography } from 'antd';
-import { createPatch } from 'diff';
 import * as Diff2Html from 'diff2html';
 import 'diff2html/bundles/css/diff2html.min.css';
 
@@ -8,9 +7,17 @@ const { Text } = Typography;
 
 export default function FileDiff({ diff, isBinary, isOfficeExtracted, fromVersion, toVersion }) {
   const containerRef = useRef(null);
+  const [, forceUpdate] = useState(0);
 
   useEffect(() => {
-    if (!diff || isBinary || !containerRef.current) return;
+    if (!diff || isBinary) return;
+
+    // If the ref is not yet attached (e.g. inside a Modal that hasn't mounted yet),
+    // schedule a re-render after a short delay to wait for DOM to be ready.
+    if (!containerRef.current) {
+      const timer = setTimeout(() => forceUpdate(n => n + 1), 50);
+      return () => clearTimeout(timer);
+    }
 
     const html = Diff2Html.html(diff, {
       drawFileList: false,
@@ -20,7 +27,7 @@ export default function FileDiff({ diff, isBinary, isOfficeExtracted, fromVersio
     });
 
     containerRef.current.innerHTML = html;
-  }, [diff, isBinary]);
+  }, [diff, isBinary, containerRef.current]);
 
   if (isBinary) {
     return (
