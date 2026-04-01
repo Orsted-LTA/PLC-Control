@@ -91,7 +91,7 @@ async function uploadFile(req, res) {
   }
 
   const db = getDb();
-  const { commitMessage, description, filePath = '/', folderId } = req.body;
+  const { commitMessage, description, filePath = '/', folderId, fileId } = req.body;
   const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
 
   // Compute normalizedPath: derive from folder if folderId given
@@ -112,10 +112,20 @@ async function uploadFile(req, res) {
       : `/${folder.folder_name}`;
   }
 
-  // Check if file with same name in same path already exists
-  let file = db
-    .prepare("SELECT * FROM files WHERE name = ? AND path = ? AND is_deleted = 0")
-    .get(originalName, normalizedPath);
+  // If fileId is provided, look up by stable UUID (upload new version to a specific file)
+  let file;
+  if (fileId) {
+    file = db.prepare("SELECT * FROM files WHERE id = ? AND is_deleted = 0").get(fileId);
+    if (!file) {
+      try { fs.unlinkSync(req.file.path); } catch (e) { logger.warn('Temp file cleanup failed', { error: e.message }); }
+      return res.status(404).json({ message: 'File not found for update' });
+    }
+  } else {
+    // Fallback: find by name + path (original behavior)
+    file = db
+      .prepare("SELECT * FROM files WHERE name = ? AND path = ? AND is_deleted = 0")
+      .get(originalName, normalizedPath);
+  }
 
   // Check lock status for existing file
   if (file && file.locked_by && file.locked_by !== req.user.id) {
