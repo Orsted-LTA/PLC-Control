@@ -5,7 +5,7 @@ import {
 } from 'antd';
 import {
   UploadOutlined, PlusOutlined, SearchOutlined,
-  DeleteOutlined, EyeOutlined, InboxOutlined, FolderOutlined, LockOutlined, TagOutlined,
+  DeleteOutlined, EyeOutlined, InboxOutlined, FolderOutlined, LockOutlined, TagOutlined, SyncOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -35,6 +35,8 @@ export default function FilesPage() {
   const [filterMachineId, setFilterMachineId] = useState(null);
   const [uploadModal, setUploadModal] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadFileId, setUploadFileId] = useState(null);
+  const [uploadFileName, setUploadFileName] = useState(null);
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState([]);
   const [folders, setFolders] = useState({ lines: [] });
@@ -108,7 +110,12 @@ export default function FilesPage() {
       formData.append('file', fileList[0].originFileObj);
       if (values.commitMessage) formData.append('commitMessage', values.commitMessage);
       if (values.description) formData.append('description', values.description);
-      if (uploadMachineId) formData.append('folderId', uploadMachineId);
+      // When uploading a new version for a specific file, send fileId for stable identification
+      if (uploadFileId) {
+        formData.append('fileId', uploadFileId);
+      } else if (uploadMachineId) {
+        formData.append('folderId', uploadMachineId);
+      }
       await api.post('/files', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       message.success(t('fileUploaded'));
       setUploadModal(false);
@@ -116,6 +123,8 @@ export default function FilesPage() {
       setFileList([]);
       setUploadLineId(null);
       setUploadMachineId(null);
+      setUploadFileId(null);
+      setUploadFileName(null);
       fetchFiles();
     } catch (err) {
       message.error(err.response?.data?.message || t('error'));
@@ -145,6 +154,8 @@ export default function FilesPage() {
     setFileList([]);
     setUploadLineId(null);
     setUploadMachineId(null);
+    setUploadFileId(null);
+    setUploadFileName(null);
   };
 
   const columns = [
@@ -214,12 +225,26 @@ export default function FilesPage() {
     },
     {
       title: t('actions'),
-      width: 100,
+      width: 130,
       render: (_, record) => (
         <Space>
           <Tooltip title={t('viewDetails')}>
             <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/files/${record.id}`)} />
           </Tooltip>
+          {(canEdit || isAdmin) && (
+            <Tooltip title={t('uploadNewVersion')}>
+              <Button
+                type="text"
+                size="small"
+                icon={<SyncOutlined />}
+                onClick={() => {
+                  setUploadFileId(record.id);
+                  setUploadFileName(record.name);
+                  setUploadModal(true);
+                }}
+              />
+            </Tooltip>
+          )}
           {(canEdit || isAdmin) && (
             <Popconfirm
               title={t('deleteFileConfirm')}
@@ -315,13 +340,18 @@ export default function FilesPage() {
       </Card>
 
       <Modal
-        title={t('uploadFile')}
+        title={uploadFileId ? t('uploadNewVersion') : t('uploadFile')}
         open={uploadModal}
         onCancel={closeModal}
         footer={null}
         width={560}
       >
         <Form form={form} layout="vertical" onFinish={handleUpload}>
+          {uploadFileId && (
+            <Form.Item label={t('fileName')}>
+              <Input value={uploadFileName} readOnly />
+            </Form.Item>
+          )}
           <Form.Item label={t('selectFile')} required>
             <Dragger
               fileList={fileList}
@@ -335,33 +365,37 @@ export default function FilesPage() {
             </Dragger>
           </Form.Item>
 
-          <Form.Item label={t('selectLine')}>
-            <Select
-              allowClear
-              placeholder={t('selectLine')}
-              onChange={(val) => { setUploadLineId(val || null); setUploadMachineId(null); }}
-              value={uploadLineId}
-            >
-              {folders.lines.map(l => <Option key={l.id} value={l.id}>{l.name}</Option>)}
-            </Select>
-          </Form.Item>
+          {!uploadFileId && (
+            <>
+              <Form.Item label={t('selectLine')}>
+                <Select
+                  allowClear
+                  placeholder={t('selectLine')}
+                  onChange={(val) => { setUploadLineId(val || null); setUploadMachineId(null); }}
+                  value={uploadLineId}
+                >
+                  {folders.lines.map(l => <Option key={l.id} value={l.id}>{l.name}</Option>)}
+                </Select>
+              </Form.Item>
 
-          {uploadLineId && (
-            <Form.Item label={t('selectMachine')}>
-              <Select
-                allowClear
-                placeholder={t('selectMachine')}
-                onChange={(val) => setUploadMachineId(val || null)}
-                value={uploadMachineId}
-              >
-                {uploadMachines.map(m => <Option key={m.id} value={m.id}>{m.name}</Option>)}
-              </Select>
-            </Form.Item>
+              {uploadLineId && (
+                <Form.Item label={t('selectMachine')}>
+                  <Select
+                    allowClear
+                    placeholder={t('selectMachine')}
+                    onChange={(val) => setUploadMachineId(val || null)}
+                    value={uploadMachineId}
+                  >
+                    {uploadMachines.map(m => <Option key={m.id} value={m.id}>{m.name}</Option>)}
+                  </Select>
+                </Form.Item>
+              )}
+
+              <Form.Item name="description" label={`${t('description')} ${t('optional')}`}>
+                <Input.TextArea rows={2} placeholder={t('descriptionPlaceholder')} />
+              </Form.Item>
+            </>
           )}
-
-          <Form.Item name="description" label={`${t('description')} ${t('optional')}`}>
-            <Input.TextArea rows={2} placeholder={t('descriptionPlaceholder')} />
-          </Form.Item>
 
           <Form.Item name="commitMessage" label={`${t('commitMessage')} ${t('optional')}`}>
             <Input.TextArea rows={2} placeholder={t('commitMessagePlaceholder')} />
