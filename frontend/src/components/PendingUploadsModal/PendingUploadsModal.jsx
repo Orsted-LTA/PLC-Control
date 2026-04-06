@@ -20,9 +20,10 @@ export default function PendingUploadsModal({ open, pendingUploads, onDismissOne
         </Space>
       }
       footer={null}
-      onCancel={onClose}
+      closable={false}
+      maskClosable={false}
+      keyboard={false}
       width={520}
-      maskClosable={true}
     >
       <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
         {t('pendingUploadsDesc')}
