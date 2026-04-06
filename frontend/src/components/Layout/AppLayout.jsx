@@ -43,7 +43,7 @@ export default function AppLayout() {
       setPendingUploads(pending);
       setPendingModalOpen(true);
     }
-  }, [user]);
+  }, []);
 
   const menuItems = [
     { key: '/', icon: <DashboardOutlined />, label: t('dashboard') },

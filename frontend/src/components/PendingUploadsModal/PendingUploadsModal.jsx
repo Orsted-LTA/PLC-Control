@@ -22,7 +22,7 @@ export default function PendingUploadsModal({ open, pendingUploads, onDismissOne
       footer={null}
       onCancel={onClose}
       width={520}
-      maskClosable={false}
+      maskClosable={true}
     >
       <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
         {t('pendingUploadsDesc')}
