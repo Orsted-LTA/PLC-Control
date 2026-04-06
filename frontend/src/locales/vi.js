@@ -291,6 +291,13 @@ export default {
   exportUser: 'Người dùng',
   exportDownloading: 'Đang tải...',
 
+  // Pending uploads warning
+  pendingUploadsTitle: 'Bạn có file chưa tải lên lại',
+  pendingUploadsDesc: 'Những file dưới đây đã được tải xuống để chỉnh sửa nhưng chưa được tải lên lại hệ thống.',
+  pendingUploadsNoNeed: 'Không cần up lại',
+  pendingUploadsUpload: 'Tải tệp lên',
+  pendingDownloadedAt: 'Tải xuống lúc',
+
   // Preview
   preview: 'Xem trước',
   imagePreview: 'Xem trước ảnh',

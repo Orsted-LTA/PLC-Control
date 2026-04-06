@@ -19,6 +19,7 @@ import { useLang } from '../../contexts/LangContext';
 import { useAuth } from '../../contexts/AuthContext';
 import CommitGraph from '../../components/CommitGraph/CommitGraph';
 import FileDiff from '../../components/FileDiff/FileDiff';
+import { addPendingUpload, removePendingUpload } from '../../utils/pendingUploads';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
@@ -315,6 +316,14 @@ export default function FileDetailPage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      // Track that this file was downloaded and may need re-uploading
+      const version = file?.versions?.find(v => v.id === versionId);
+      addPendingUpload({
+        fileId: file.id,
+        fileName: file.name,
+        versionId,
+        versionNumber: version?.versionNumber,
+      });
     } catch (err) {
       message.error(err.response?.data?.message || t('error'));
     }
@@ -349,6 +358,7 @@ export default function FileDetailPage() {
       await api.post('/files', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      removePendingUpload(file.id);
       message.success(t('fileUploaded'));
       setUploadModal(false);
       form.resetFields();

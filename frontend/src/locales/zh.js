@@ -300,4 +300,11 @@ export default {
   notVideoFile: '此文件不是视频文件',
   notAudioFile: '此文件不是音频文件',
   mediaPreview: '媒体预览',
+
+  // Pending uploads warning
+  pendingUploadsTitle: '您有文件待重新上传',
+  pendingUploadsDesc: '以下文件已被下载编辑，但尚未重新上传至系统。',
+  pendingUploadsNoNeed: '无需重新上传',
+  pendingUploadsUpload: '上传文件',
+  pendingDownloadedAt: '下载时间',
 };

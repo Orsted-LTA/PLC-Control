@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Avatar, Dropdown, Button, Space, Typography, Badge, Popover, List, Empty, Tag } from 'antd';
 import {
   DashboardOutlined,
@@ -20,6 +20,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLang } from '../../contexts/LangContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import dayjs from 'dayjs';
+import PendingUploadsModal from '../PendingUploadsModal/PendingUploadsModal';
+import { getPendingUploads, removePendingUpload } from '../../utils/pendingUploads';
 
 const { Header, Sider, Content } = Layout;
 
@@ -31,6 +33,17 @@ export default function AppLayout() {
   const totalUnread = unreadCount + dbUnreadCount;
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [pendingUploads, setPendingUploads] = useState([]);
+  const [pendingModalOpen, setPendingModalOpen] = useState(false);
+
+  useEffect(() => {
+    const pending = getPendingUploads();
+    if (pending.length > 0) {
+      setPendingUploads(pending);
+      setPendingModalOpen(true);
+    }
+  }, []);
 
   const menuItems = [
     { key: '/', icon: <DashboardOutlined />, label: t('dashboard') },
@@ -68,6 +81,7 @@ export default function AppLayout() {
   })?.key || '/';
 
   return (
+    <>
     <Layout style={{ minHeight: '100vh' }}>
       <Sider
         collapsible
@@ -238,5 +252,21 @@ export default function AppLayout() {
         </Content>
       </Layout>
     </Layout>
+
+    <PendingUploadsModal
+      open={pendingModalOpen}
+      pendingUploads={pendingUploads}
+      onDismissOne={(fileId) => {
+        const updated = pendingUploads.filter(p => p.fileId !== fileId);
+        setPendingUploads(updated);
+        if (updated.length === 0) setPendingModalOpen(false);
+      }}
+      onUpload={(item) => {
+        setPendingModalOpen(false);
+        navigate(`/files/${item.fileId}`);
+      }}
+      onClose={() => setPendingModalOpen(false)}
+    />
+    </>
   );
 }

@@ -291,6 +291,13 @@ export default {
   exportUser: 'User',
   exportDownloading: 'Downloading...',
 
+  // Pending uploads warning
+  pendingUploadsTitle: 'You have files pending re-upload',
+  pendingUploadsDesc: 'The following files were downloaded for editing but have not been re-uploaded to the system yet.',
+  pendingUploadsNoNeed: 'No need to re-upload',
+  pendingUploadsUpload: 'Upload file',
+  pendingDownloadedAt: 'Downloaded at',
+
   // Preview
   preview: 'Preview',
   imagePreview: 'Image Preview',

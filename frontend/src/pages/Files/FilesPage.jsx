@@ -12,6 +12,7 @@ import dayjs from 'dayjs';
 import api, { getFolders } from '../../api';
 import { useLang } from '../../contexts/LangContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { removePendingUpload } from '../../utils/pendingUploads';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
@@ -117,6 +118,7 @@ export default function FilesPage() {
         formData.append('folderId', uploadMachineId);
       }
       await api.post('/files', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (uploadFileId) removePendingUpload(uploadFileId);
       message.success(t('fileUploaded'));
       setUploadModal(false);
       form.resetFields();
