@@ -26,6 +26,7 @@ const adminRoutes = require('./src/routes/admin');
 const tagRoutes = require('./src/routes/tags');
 const commentRoutes = require('./src/routes/comments');
 const notificationsRouter = require('./src/routes/notificationsRouter');
+const barcodeRouter = require('./src/routes/barcode');
 
 // Initialize database
 initDb();
@@ -93,6 +94,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/versions', commentRoutes);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/barcode', barcodeRouter);
 
 // SSE notifications endpoint
 app.get('/api/notifications/stream', authenticateToken, (req, res) => {
