@@ -37,3 +37,7 @@ data/plc_control.db
 data/plc_control.db-shm
 data/plc_control.db-wal
 data/backups/
+
+# Downloaded font assets (restored by `npm install` postinstall script)
+backend/src/assets/fonts/*.ttf
+backend/src/assets/fonts/*.otf
