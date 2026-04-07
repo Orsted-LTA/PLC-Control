@@ -53,9 +53,23 @@ export default function BarcodePage() {
 
       setStatus('success');
     } catch (err) {
-      const msg = err?.response?.data
-        ? await err.response.data.text?.().catch(() => t('barcodeError'))
-        : err.message || t('barcodeError');
+      let msg = t('barcodeError');
+      if (err?.response?.data) {
+        const data = err.response.data;
+        if (data instanceof Blob) {
+          try {
+            const text = await data.text();
+            const parsed = JSON.parse(text);
+            msg = parsed.error || text;
+          } catch {
+            // keep default message
+          }
+        } else if (typeof data === 'object' && data.error) {
+          msg = data.error;
+        }
+      } else if (err.message) {
+        msg = err.message;
+      }
       setErrorMsg(msg);
       setStatus('error');
     }

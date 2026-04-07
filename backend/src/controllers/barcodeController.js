@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const ExcelJS = require('exceljs');
 const bwipjs = require('bwip-js');
 const PDFDocument = require('pdfkit');
@@ -151,6 +152,13 @@ async function generateBarcode(req, res) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    // Validate that the temp file is inside os.tmpdir() to prevent path injection
+    const resolvedTemp = path.resolve(tempPath);
+    const tmpDir = path.resolve(os.tmpdir());
+    if (!resolvedTemp.startsWith(tmpDir + path.sep) && resolvedTemp !== tmpDir) {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
+
     // Parse groups config from request body (optional)
     let groups = DEFAULT_GROUPS;
     if (req.body?.groups) {
@@ -220,7 +228,6 @@ async function generateBarcode(req, res) {
       const item = items[i];
 
       // Page break
-      const pageIndex = Math.floor(i / (COLS * ROWS));
       if (i > 0 && i % (COLS * ROWS) === 0) doc.addPage();
 
       const posInPage = i % (COLS * ROWS);
