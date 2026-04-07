@@ -22,7 +22,6 @@ function findCjkFont(variant) {
   const isBold = variant === 'bold';
 
   // 1. Bundled fonts (placed by scripts/download-fonts.js)
-  //    Primary download saves as .otf; fallback download saves as .ttf — check both.
   const bundledCandidates = isBold
     ? ['NotoSansSC-Bold.otf', 'NotoSansSC-Bold.ttf']
     : ['NotoSansSC-Regular.otf', 'NotoSansSC-Regular.ttf'];
@@ -32,24 +31,33 @@ function findCjkFont(variant) {
     if (fs.existsSync(p)) return p;
   }
 
-  // 2. System font candidates (Linux / macOS / Windows)
-  const systemCandidates = isBold
-    ? [
-        '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc',
-        '/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc',
-        '/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc',
-        '/System/Library/Fonts/PingFang.ttc',
-        'C:\\Windows\\Fonts\\msyhbd.ttc',
-      ]
-    : [
-        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
-        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
-        '/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc',
-        '/System/Library/Fonts/PingFang.ttc',
-        'C:\\Windows\\Fonts\\msyh.ttc',
-      ];
+  // 2. System font candidates - ONLY .ttf and .otf
+  // NOTE: PDFKit does NOT support .ttc (TrueType Collection) files.
+  // Never add .ttc paths here.
+  const systemCandidates = [
+    // Linux - Noto Sans individual .ttf files
+    '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttf',
+    '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttf',
+    // Linux - WQY fonts (common on servers, pure .ttf)
+    '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttf',
+    '/usr/share/fonts/truetype/wqy/wqy-microhei.ttf',
+    '/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttf',
+    '/usr/share/fonts/wqy-microhei/wqy-microhei.ttf',
+    // Linux - Arphic fonts
+    '/usr/share/fonts/truetype/arphic/uming.ttf',
+    '/usr/share/fonts/truetype/arphic/ukai.ttf',
+    // Windows - individual .ttf (NOT .ttc - msyh.ttc is NOT supported)
+    'C:\\Windows\\Fonts\\simhei.ttf',
+    'C:\\Windows\\Fonts\\simfang.ttf',
+    'C:\\Windows\\Fonts\\SIMYOU.TTF',
+    // macOS
+    '/System/Library/Fonts/Supplemental/Arial Unicode MS.ttf',
+    '/Library/Fonts/Arial Unicode MS.ttf',
+  ];
 
   for (const candidate of systemCandidates) {
+    // Runtime guard: skip .ttc files - PDFKit does not support TrueType Collections
+    if (candidate.toLowerCase().endsWith('.ttc')) continue;
     if (fs.existsSync(candidate)) return candidate;
   }
 
