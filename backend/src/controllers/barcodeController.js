@@ -41,14 +41,16 @@ const DEFAULT_GROUPS = [
 // ---------------------------------------------------------------------------
 // Parse CSV / Excel file with ExcelJS
 // ---------------------------------------------------------------------------
-async function parseFile(filePath, mimeType) {
+async function parseFile(filePath, originalName) {
   const workbook = new ExcelJS.Workbook();
 
-  const ext = path.extname(filePath).toLowerCase();
+  const ext = path.extname(originalName || '').toLowerCase();
   if (ext === '.csv') {
     await workbook.csv.readFile(filePath);
+  } else if (ext === '.xls') {
+    throw new Error('File .xls (Excel 97-2003) không được hỗ trợ. Vui lòng lưu file dưới định dạng .xlsx hoặc .csv');
   } else {
-    // .xlsx / .xls
+    // .xlsx
     await workbook.xlsx.readFile(filePath);
   }
 
@@ -171,7 +173,7 @@ async function generateBarcode(req, res) {
     }
 
     // Parse file – use the validated resolved path
-    const { headers, dataRows } = await parseFile(resolvedTemp, req.file.mimetype);
+    const { headers, dataRows } = await parseFile(resolvedTemp, req.file.originalname);
 
     // Detect columns
     const colOrder = detectColumn(headers, COLUMN_ALIASES.order);
