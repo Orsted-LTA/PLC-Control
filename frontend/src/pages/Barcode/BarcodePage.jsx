@@ -16,6 +16,12 @@ const ACCEPTED_MIME = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ];
 
+const STATUS = {
+  GENERATING: 'generating',
+  SUCCESS: 'success',
+  ERROR: 'error',
+};
+
 function isValidFile(file) {
   const ext = file.name?.split('.').pop()?.toLowerCase();
   return ACCEPTED_EXTENSIONS.includes(`.${ext}`) || ACCEPTED_MIME.includes(file.type);
@@ -30,12 +36,12 @@ export default function BarcodePage() {
 
   const handleGenerate = async () => {
     if (!selectedFile) {
-      setStatus('error');
+      setStatus(STATUS.ERROR);
       setErrorMsg(t('barcodeNoFile'));
       return;
     }
 
-    setStatus('generating');
+    setStatus(STATUS.GENERATING);
     setErrorMsg('');
 
     try {
@@ -51,7 +57,7 @@ export default function BarcodePage() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      setStatus('success');
+      setStatus(STATUS.SUCCESS);
     } catch (err) {
       let msg = t('barcodeError');
       if (err?.response?.data) {
@@ -71,7 +77,7 @@ export default function BarcodePage() {
         msg = err.message;
       }
       setErrorMsg(msg);
-      setStatus('error');
+      setStatus(STATUS.ERROR);
     }
   };
 
@@ -81,7 +87,7 @@ export default function BarcodePage() {
     accept: '.csv,.xlsx,.xls',
     beforeUpload: (file) => {
       if (!isValidFile(file)) {
-        setStatus('error');
+        setStatus(STATUS.ERROR);
         setErrorMsg(t('barcodeFileInvalid'));
         return Upload.LIST_IGNORE;
       }
@@ -139,7 +145,7 @@ export default function BarcodePage() {
         )}
 
         {/* Status alerts */}
-        {status === 'success' && (
+        {status === STATUS.SUCCESS && (
           <Alert
             type="success"
             message={t('barcodeSuccess')}
@@ -149,7 +155,7 @@ export default function BarcodePage() {
             onClose={() => setStatus(null)}
           />
         )}
-        {status === 'error' && errorMsg && (
+        {status === STATUS.ERROR && errorMsg && (
           <Alert
             type="error"
             message={t('barcodeError')}
@@ -164,12 +170,12 @@ export default function BarcodePage() {
         <Button
           type="primary"
           size="large"
-          icon={status === 'generating' ? <Spin size="small" /> : <FilePdfOutlined />}
+          icon={status === STATUS.GENERATING ? <Spin size="small" /> : <FilePdfOutlined />}
           onClick={handleGenerate}
-          disabled={!selectedFile || status === 'generating'}
+          disabled={!selectedFile || status === STATUS.GENERATING}
           style={{ width: '100%' }}
         >
-          {status === 'generating' ? t('barcodeGenerating') : t('barcodeGenerate')}
+          {status === STATUS.GENERATING ? t('barcodeGenerating') : t('barcodeGenerate')}
         </Button>
       </Space>
     </div>

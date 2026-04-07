@@ -155,7 +155,7 @@ async function generateBarcode(req, res) {
     // Validate that the temp file is inside os.tmpdir() to prevent path injection
     const resolvedTemp = path.resolve(tempPath);
     const tmpDir = path.resolve(os.tmpdir());
-    if (!resolvedTemp.startsWith(tmpDir + path.sep) && resolvedTemp !== tmpDir) {
+    if (!resolvedTemp.startsWith(tmpDir + path.sep)) {
       return res.status(400).json({ error: 'Invalid file path' });
     }
 
@@ -170,8 +170,8 @@ async function generateBarcode(req, res) {
       }
     }
 
-    // Parse file
-    const { headers, dataRows } = await parseFile(tempPath, req.file.mimetype);
+    // Parse file – use the validated resolved path
+    const { headers, dataRows } = await parseFile(resolvedTemp, req.file.mimetype);
 
     // Detect columns
     const colOrder = detectColumn(headers, COLUMN_ALIASES.order);
@@ -265,7 +265,14 @@ async function generateBarcode(req, res) {
         const barX = x + (CELL_W - BAR_W) / 2;
         doc.image(barcodeBuffer, barX, curY, { width: BAR_W, height: BAR_H });
       } catch (err) {
-        logger.warn('Barcode generation failed for order', { order: item.order, err: err.message });
+        logger.warn('Barcode generation failed for order', { order: item.order, error: err.message });
+        // Draw placeholder text when barcode cannot be generated
+        doc.font('Helvetica').fontSize(8).fillColor('#cc0000');
+        doc.text('[barcode error]', x + padding, curY + BAR_H / 2 - 5, {
+          width: CELL_W - padding * 2,
+          align: 'center',
+        });
+        doc.fillColor('black');
       }
       curY += BAR_H + 4;
 
@@ -288,7 +295,7 @@ async function generateBarcode(req, res) {
     // Cleanup temp file
     if (tempPath) {
       fs.unlink(tempPath, (unlinkErr) => {
-        if (unlinkErr) logger.warn('Failed to delete temp file', { path: tempPath });
+        if (unlinkErr) logger.warn('Failed to delete temp file', { path: tempPath, error: unlinkErr.message });
       });
     }
   }

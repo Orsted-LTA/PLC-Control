@@ -13,7 +13,7 @@ export async function generateBarcodePdf(file, onDownloadProgress) {
   const response = await api.post('/barcode/generate', formData, {
     responseType: 'blob',
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 0,
+    timeout: 5 * 60 * 1000, // 5 minutes
     ...(onDownloadProgress ? { onDownloadProgress } : {}),
   });
 
