@@ -25,6 +25,7 @@ import UsersPage from './pages/Users/UsersPage';
 import ProfilePage from './pages/Profile/ProfilePage';
 import FoldersPage from './pages/Folders/FoldersPage';
 import BackupViewerPage from './pages/BackupViewer/BackupViewerPage';
+import BarcodePage from './pages/Barcode/BarcodePage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -97,6 +98,7 @@ function AppRoutes() {
               }
             />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="barcode" element={<BarcodePage />} />
           </Route>
           <Route
             path="backups/:name"
