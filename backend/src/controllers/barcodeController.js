@@ -9,6 +9,54 @@ const PDFDocument = require('pdfkit');
 const logger = require('../utils/logger');
 
 // ---------------------------------------------------------------------------
+// CJK font resolution (supports Chinese / Japanese / Korean + Vietnamese)
+// ---------------------------------------------------------------------------
+const BUNDLED_FONT_DIR = path.join(__dirname, '../assets/fonts');
+
+/**
+ * Returns the path to a TrueType/OpenType font that supports CJK characters,
+ * or null if none is found.  Bundled NotoSansSC fonts are checked first;
+ * common system font locations are used as a fallback.
+ */
+function findCjkFont(variant) {
+  const isBold = variant === 'bold';
+
+  // 1. Bundled fonts (placed by scripts/download-fonts.js)
+  //    Primary download saves as .otf; fallback download saves as .ttf — check both.
+  const bundledCandidates = isBold
+    ? ['NotoSansSC-Bold.otf', 'NotoSansSC-Bold.ttf']
+    : ['NotoSansSC-Regular.otf', 'NotoSansSC-Regular.ttf'];
+
+  for (const name of bundledCandidates) {
+    const p = path.join(BUNDLED_FONT_DIR, name);
+    if (fs.existsSync(p)) return p;
+  }
+
+  // 2. System font candidates (Linux / macOS / Windows)
+  const systemCandidates = isBold
+    ? [
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc',
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc',
+        '/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc',
+        '/System/Library/Fonts/PingFang.ttc',
+        'C:\\Windows\\Fonts\\msyhbd.ttc',
+      ]
+    : [
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc',
+        '/System/Library/Fonts/PingFang.ttc',
+        'C:\\Windows\\Fonts\\msyh.ttc',
+      ];
+
+  for (const candidate of systemCandidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Column auto-detection aliases (multi-language)
 // ---------------------------------------------------------------------------
 const COLUMN_ALIASES = {
@@ -223,6 +271,32 @@ async function generateBarcode(req, res) {
 
     const doc = new PDFDocument({ size: 'A4', margin: 0, autoFirstPage: true });
 
+    // Register CJK-capable fonts when available; fall back to Helvetica (Latin only)
+    let fontRegular = 'Helvetica';
+    let fontBold    = 'Helvetica-Bold';
+
+    const regularFontPath = findCjkFont('regular');
+    if (regularFontPath) {
+      try {
+        doc.registerFont('NotoSans', regularFontPath);
+        fontRegular = 'NotoSans';
+      } catch (fontErr) {
+        logger.warn('Could not register regular CJK font, falling back to Helvetica', { path: regularFontPath, error: fontErr.message });
+      }
+    } else {
+      logger.warn('No CJK font found. Run `node scripts/download-fonts.js` to enable Chinese/Japanese/Korean text rendering.');
+    }
+
+    const boldFontPath = findCjkFont('bold');
+    if (boldFontPath) {
+      try {
+        doc.registerFont('NotoSansBold', boldFontPath);
+        fontBold = 'NotoSansBold';
+      } catch (fontErr) {
+        logger.warn('Could not register bold CJK font, falling back to Helvetica-Bold', { path: boldFontPath, error: fontErr.message });
+      }
+    }
+
     // Stream PDF directly to response
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="barcodes.pdf"');
@@ -248,7 +322,7 @@ async function generateBarcode(req, res) {
       let curY = y + padding;
 
       // Date + Line (bold)
-      doc.font('Helvetica-Bold').fontSize(9);
+      doc.font(fontBold).fontSize(9);
       doc.text(`${item.date}  |  Line ${item.line}`, x + padding, curY, {
         width: CELL_W - padding * 2,
         ellipsis: true,
@@ -256,7 +330,7 @@ async function generateBarcode(req, res) {
       curY += 14;
 
       // Description (regular, small)
-      doc.font('Helvetica').fontSize(8);
+      doc.font(fontRegular).fontSize(8);
       doc.text(item.desc || '-', x + padding, curY, {
         width: CELL_W - padding * 2,
         ellipsis: true,
@@ -271,7 +345,7 @@ async function generateBarcode(req, res) {
       } catch (err) {
         logger.warn('Barcode generation failed for order', { order: item.order, error: err.message });
         // Draw placeholder text when barcode cannot be generated
-        doc.font('Helvetica').fontSize(8).fillColor('#cc0000');
+        doc.font(fontRegular).fontSize(8).fillColor('#cc0000');
         doc.text('[barcode error]', x + padding, curY + BAR_H / 2 - 5, {
           width: CELL_W - padding * 2,
           align: 'center',
@@ -281,7 +355,7 @@ async function generateBarcode(req, res) {
       curY += BAR_H + 4;
 
       // Order number text (large, centered)
-      doc.font('Helvetica-Bold').fontSize(10);
+      doc.font(fontBold).fontSize(10);
       doc.text(item.order, x + padding, curY, {
         width: CELL_W - padding * 2,
         align: 'center',
