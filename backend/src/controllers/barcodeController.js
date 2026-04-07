@@ -42,13 +42,15 @@ const DEFAULT_GROUPS = [
 // Parse CSV / Excel file with ExcelJS
 // ---------------------------------------------------------------------------
 async function parseFile(filePath, originalName) {
+  if (!originalName) throw new Error('Original file name is required to determine file format');
+
   const workbook = new ExcelJS.Workbook();
 
-  const ext = path.extname(originalName || '').toLowerCase();
+  const ext = path.extname(originalName).toLowerCase();
   if (ext === '.csv') {
     await workbook.csv.readFile(filePath);
   } else if (ext === '.xls') {
-    throw new Error('File .xls (Excel 97-2003) không được hỗ trợ. Vui lòng lưu file dưới định dạng .xlsx hoặc .csv');
+    throw new Error('File format .xls (Excel 97-2003) is not supported. Please save the file as .xlsx or .csv');
   } else {
     // .xlsx
     await workbook.xlsx.readFile(filePath);
