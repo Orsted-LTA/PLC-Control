@@ -59,12 +59,55 @@ export default function AppLayout() {
     ] : []),
   ];
 
+  const langMenuItems = [
+    {
+      key: 'lang-vi',
+      label: (
+        <Space size={6}>
+          <span>🇻🇳</span>
+          <span>Tiếng Việt</span>
+          {lang === 'vi' && <Tag color="blue" style={{ fontSize: 10, padding: '0 4px', lineHeight: '16px' }}>✓</Tag>}
+        </Space>
+      ),
+      onClick: () => switchLang('vi'),
+    },
+    {
+      key: 'lang-en',
+      label: (
+        <Space size={6}>
+          <span>🇬🇧</span>
+          <span>English</span>
+          {lang === 'en' && <Tag color="blue" style={{ fontSize: 10, padding: '0 4px', lineHeight: '16px' }}>✓</Tag>}
+        </Space>
+      ),
+      onClick: () => switchLang('en'),
+    },
+    {
+      key: 'lang-zh',
+      label: (
+        <Space size={6}>
+          <span>🇨🇳</span>
+          <span>中文</span>
+          {lang === 'zh' && <Tag color="blue" style={{ fontSize: 10, padding: '0 4px', lineHeight: '16px' }}>✓</Tag>}
+        </Space>
+      ),
+      onClick: () => switchLang('zh'),
+    },
+  ];
+
   const userMenuItems = [
     {
       key: 'profile',
       icon: <UserOutlined />,
       label: t('profile'),
       onClick: () => navigate('/profile'),
+    },
+    { type: 'divider' },
+    {
+      key: 'language',
+      icon: <GlobalOutlined />,
+      label: t('language'),
+      children: langMenuItems,
     },
     { type: 'divider' },
     {

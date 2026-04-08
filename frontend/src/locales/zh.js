@@ -54,6 +54,7 @@ export default {
   users: '用户管理',
   profile: '个人资料',
   settings: '设置',
+  language: '语言',
 
   // Dashboard
   totalFiles: '文件总数',

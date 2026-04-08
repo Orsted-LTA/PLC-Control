@@ -54,6 +54,7 @@ export default {
   users: 'User Management',
   profile: 'My Profile',
   settings: 'Settings',
+  language: 'Language',
 
   // Dashboard
   totalFiles: 'Total Files',
