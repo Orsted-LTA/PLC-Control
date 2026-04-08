@@ -374,4 +374,13 @@ export default {
   batteryDownloadSuccess: 'Đã tải báo cáo',
   batteryDownloadFailed: 'Tải báo cáo thất bại',
   batteryNoReport: 'Không có báo cáo cho phiên làm việc hiện tại',
+  batteryTemplateUpload: 'Tải lên mẫu báo cáo',
+  batteryTemplateUploadHint: 'Kéo thả hoặc click để chọn file .xlsx',
+  batteryTemplateUploaded: 'Đã lưu mẫu báo cáo',
+  batteryTemplateUploadFailed: 'Tải lên thất bại',
+  batteryTemplateNotFound: 'Chưa có mẫu báo cáo. Vui lòng tải lên trước.',
+  batteryDownloadTemplateReport: 'Tải báo cáo từ mẫu',
+  batteryExcelReport: 'Báo cáo Excel',
+  batteryCurrentTemplate: 'Mẫu hiện tại',
+  batteryNoTemplate: 'Chưa có mẫu',
 };

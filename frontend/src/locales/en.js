@@ -374,4 +374,13 @@ export default {
   batteryDownloadSuccess: 'Report downloaded',
   batteryDownloadFailed: 'Failed to download report',
   batteryNoReport: 'No report available for current session',
+  batteryTemplateUpload: 'Upload Report Template',
+  batteryTemplateUploadHint: 'Drag & drop or click to select .xlsx template',
+  batteryTemplateUploaded: 'Template saved successfully',
+  batteryTemplateUploadFailed: 'Template upload failed',
+  batteryTemplateNotFound: 'No template found. Please upload one first.',
+  batteryDownloadTemplateReport: 'Download Report from Template',
+  batteryExcelReport: 'Excel Report',
+  batteryCurrentTemplate: 'Current Template',
+  batteryNoTemplate: 'No template uploaded',
 };
