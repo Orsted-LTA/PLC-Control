@@ -5,13 +5,14 @@
 [![JavaScript](https://img.shields.io/badge/JavaScript-99.5%25-F7DF1E?logo=javascript&logoColor=black)](https://github.com/Orsted-LTA/PLC-Control)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-Private-red)](https://github.com/Orsted-LTA/PLC-Control)
 
 ---
 
 ## 📋 Tổng Quan
 
-**PLC Control** là hệ thống quản lý phiên bản file nội bộ, được xây dựng cho môi trường sản xuất công nghiệp. Mỗi lần kỹ sư upload file PLC → hệ thống tự động tạo version mới, lưu toàn bộ lịch sử, cho phép so sánh và khôi phục bất kỳ phiên bản nào — tương tự Git nhưng dành riêng cho file máy PLC.
+**PLC Control** là hệ thống quản lý phiên bản file nội bộ, được xây dựng cho môi trường sản xuất công nghiệp. Mỗi lần kỹ sư upload file PLC → hệ thống tự động tạo version mới, lưu toàn bộ lịch sử, cho phép so sánh và khôi phục về bất kỳ phiên bản nào — tương tự Git nhưng dành riêng cho file máy PLC.
 
 ### ✨ Tính Năng Chính
 
@@ -30,32 +31,33 @@
 | 📊 **Dashboard & Audit Log** | Thống kê tổng quan và lịch sử toàn bộ hoạt động hệ thống |
 | 🌐 **Đa ngôn ngữ** | Tiếng Việt 🇻🇳 · English 🇬🇧 · 中文 🇨🇳 |
 | 📤 **Upload lớn** | Hỗ trợ file lên đến **5 GB** |
+| 🔋 **Kiểm tra Pin** | Hệ thống kiểm tra OCV/CCV IT8511A+ tích hợp trực tiếp vào giao diện web |
 
 ---
 
 ## 🏗️ Kiến Trúc Hệ Thống
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                      PLC Control Server                       │
-│                                                              │
-│   ┌──────────────────┐      ┌────────────────────────────┐   │
-│   │    Frontend      │      │         Backend            │   │
-│   │  React 18 + Vite │─────▶│   Node.js + Express        │   │
-│   │   Ant Design 5   │      │   REST API + SSE           │   │
-│   │   (Port 3000)    │◀─────│   (Port 3001)              │   │
-│   └──────────────────┘      └───────────┬────────────────┘   │
-│                                         │                    │
-│                              ┌──────────▼──────────┐        │
-│                              │      SQLite DB       │        │
-│                              │   ./data/plc.db      │        │
-│                              └──────────┬───────────┘        │
-│                                         │                    │
-│                              ┌──────────▼──────────┐        │
-│                              │    File Storage      │        │
-│                              │   ./uploads/         │        │
-│                              └─────────────────────┘        │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        PLC Control Server                           │
+│                                                                     │
+│  ┌──────────────────┐      ┌──────────────────────────────────────┐ │
+│  │    Frontend      │      │            Backend                   │ │
+│  │  React 18 + Vite │─────▶│  Node.js + Express                   │ │
+│  │   Ant Design 5   │      │  REST API + SSE + WebSocket (/ws)    │ │
+│  │   ECharts        │◀─────│  (Port 3001)                         │ │
+│  │   (Port 3000)    │      └──────────┬──────────────┬────────────┘ │
+│  └──────────────────┘                 │              │              │
+│                              ┌────────▼──────┐  ┌───▼───────────┐  │
+│                              │  SQLite DB    │  │ Python FastAPI │  │
+│                              │ ./data/plc.db │  │  Port 8765    │  │
+│                              └───────────────┘  │  hardware-    │  │
+│                                                 │  services/    │  │
+│                              ┌────────────────┐ │  IT8511A+     │  │
+│                              │  File Storage  │ │  via VISA/COM │  │
+│                              │  ./uploads/    │ └───────────────┘  │
+│                              └────────────────┘                    │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Stack Công Nghệ
@@ -64,10 +66,11 @@
 |---|---|
 | **Backend** | Node.js 18+ · Express 4 · better-sqlite3 |
 | **Auth** | JWT (access token + refresh token) |
-| **Real-time** | SSE (Server-Sent Events) |
-| **Frontend** | React 18 · Vite · Ant Design 5 |
+| **Real-time** | SSE (Server-Sent Events) · WebSocket (`ws`) |
+| **Frontend** | React 18 · Vite · Ant Design 5 · ECharts |
 | **Diff Engine** | diff · diff2html |
 | **Office Parser** | xlsx · mammoth · pptx2json |
+| **Hardware Service** | Python 3.9+ · FastAPI · pyvisa · pyserial · openpyxl |
 | **Font** | Inter · Noto Sans · Noto Sans SC |
 
 ---
@@ -81,24 +84,30 @@ PLC-Control/
 │   │   ├── config/         # Cấu hình port, JWT, storage
 │   │   ├── middleware/     # Auth, error handler, SSE
 │   │   ├── models/         # Database schema & khởi tạo
-│   │   ├── routes/         # API routes
+│   │   ├── routes/         # API routes (bao gồm battery.js)
 │   │   ├── controllers/    # Business logic
-│   │   └── utils/          # Logger, file utils, diff, backup
+│   │   └── utils/          # Logger, file utils, diff, backup, batterySocket
 │   ├── .env.example
 │   ├── package.json
-│   └── server.js
+│   └── server.js           # HTTP server + WebSocket init
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── api/            # Axios client
+│   │   ├── api/            # Axios client (battery.js)
 │   │   ├── components/     # Layout, CommitGraph, FileDiff
 │   │   ├── contexts/       # AuthContext, LangContext
-│   │   ├── locales/        # vi.js · en.js · zh.js
+│   │   ├── locales/        # vi.js · en.js · zh.js (+ battery keys)
 │   │   └── pages/          # Login, Dashboard, Files, FileDetail,
-│   │                       # History, Users, Profile, BackupViewer
+│   │                       # History, Users, Profile, BackupViewer,
+│   │                       # Barcode, Battery
 │   ├── index.html
 │   ├── package.json
-│   └── vite.config.js
+│   └── vite.config.js      # Proxy: /api + /ws → localhost:3001
+│
+├── hardware-services/       # Python headless battery test service
+│   ├── battery_service.py  # FastAPI app — SCPI logic, OCV/CCV, SSE, Excel
+│   ├── requirements.txt    # fastapi, uvicorn, pyvisa, pyserial, openpyxl
+│   └── README.md           # Setup & API docs
 │
 ├── .gitignore
 └── README.md
@@ -112,6 +121,7 @@ PLC-Control/
 |---|---|---|
 | Node.js | 18+ | LTS recommended |
 | npm | 9+ | Đi kèm Node.js |
+| Python | 3.9+ | Chỉ cần nếu dùng module kiểm tra pin |
 | OS | Windows / Linux / macOS | Đã test trên Windows Server & Ubuntu |
 
 ---
@@ -167,6 +177,98 @@ Truy cập: `http://localhost:3000` hoặc `http://<IP-máy-chủ>:3000`
 
 ---
 
+## 🔋 Hệ Thống Kiểm Tra Pin (Battery Test Module)
+
+Tích hợp trực tiếp vào giao diện web, cho phép vận hành máy kiểm tra điện tử **IT8511A+** để đo OCV/CCV pin mà không cần phần mềm desktop riêng.
+
+### Kiến Trúc Module
+
+```
+[Browser — BatteryPage.jsx]
+        │  WebSocket  ws://host/ws/battery
+        │  REST       /api/battery/*
+        ▼
+[Node.js — batterySocket.js + routes/battery.js]
+        │  HTTP proxy  →  localhost:8765
+        │  SSE relay   ←  localhost:8765/stream
+        ▼
+[Python FastAPI — hardware-services/battery_service.py]
+        │  pyvisa SCPI  →  IT8511A+ qua cổng COM/USB
+        │  hoặc Simulation Mode (không cần phần cứng)
+        ▼
+[Excel Report — hardware-services/reports/{order}_{date}.xlsx]
+```
+
+### Cài Đặt Python Service
+
+```bash
+cd hardware-services
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+# Linux/macOS
+source venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+### Khởi Động Service
+
+```bash
+# Trong hardware-services/ (sau khi activate venv)
+uvicorn battery_service:app --host 127.0.0.1 --port 8765
+```
+
+> Service sẽ chạy tại `http://127.0.0.1:8765`
+> API docs: `http://127.0.0.1:8765/docs`
+
+### Sử Dụng
+
+1. Khởi động Node.js backend và Python service
+2. Mở trình duyệt → vào mục **🔋 Kiểm tra Pin** trong menu trái
+3. Chọn cổng COM và kết nối (hoặc bật **Simulation Mode** nếu không có phần cứng)
+4. Nhập thông số: Mã đơn hàng, Ngày, Điện trở (Ω), Thời gian OCV/Load, Hệ số K
+5. Nhấn **Bắt đầu** — hệ thống tự động: Chờ pin → Đo OCV → Đặt tải → Đo CCV → Lưu Excel → Chờ lấy pin ra
+6. Nhấn **Tải báo cáo Excel** để tải file kết quả
+
+### Chế Độ Simulation
+
+Bật checkbox **Simulation Mode** trước khi kết nối → hệ thống tạo dữ liệu ngẫu nhiên, không cần phần cứng IT8511A+.
+
+### API Endpoints (Battery)
+
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| `GET` | `/api/battery/ports` | Danh sách cổng COM khả dụng |
+| `GET` | `/api/battery/status` | Trạng thái phiên kiểm tra hiện tại |
+| `GET` | `/api/battery/health` | Kiểm tra kết nối tới Python service |
+| `GET` | `/api/battery/report/download` | Tải xuống báo cáo Excel |
+| `WS` | `/ws/battery` | WebSocket: stream live data + điều khiển |
+
+### WebSocket Messages
+
+Gửi lên (client → server):
+```json
+{ "action": "get_ports" }
+{ "action": "connect", "payload": { "port": "COM3", "baud_rate": 115200, "simulation": false } }
+{ "action": "start", "payload": { "order_id": "ORD-001", "date": "2026-04", "resistance": 3.9, "ocv_time": 2.0, "load_time": 2.0, "coeff": 1.0 } }
+{ "action": "stop" }
+{ "action": "clear_session" }
+```
+
+Nhận về (server → client):
+```json
+{ "type": "ports", "ports": ["COM3", "COM4"] }
+{ "type": "connect_result", "ok": true, "message": "IT8511A+ V1.0" }
+{ "type": "reading", "elapsed": 1.2, "voltage": 3.945, "phase": "ocv" }
+{ "type": "record", "record": { "id": 1, "ocv": 3.945, "ccv": 3.712, "time": "09:32:15" } }
+{ "type": "status", "text": "Waiting for battery ID 2..." }
+{ "type": "error", "message": "Lost connection to instrument" }
+```
+
+---
+
 ## 🗂️ Phân Quyền
 
 | Quyền | Admin | Editor | Viewer |
@@ -178,6 +280,7 @@ Truy cập: `http://localhost:3000` hoặc `http://<IP-máy-chủ>:3000`
 | Quản lý người dùng | ✅ | ❌ | ❌ |
 | Xem Audit Log | ✅ | ❌ | ❌ |
 | Backup & Restore DB | ✅ | ❌ | ❌ |
+| Kiểm tra Pin (Battery) | ✅ | ✅ | ✅ |
 
 ---
 
@@ -198,6 +301,9 @@ Truy cập: `http://localhost:3000` hoặc `http://<IP-máy-chủ>:3000`
 | `GET` | `/api/sse/events` | Real-time SSE stream |
 | `GET` | `/api/backups` | Danh sách backup |
 | `POST` | `/api/backups/restore` | Khôi phục từ backup |
+| `GET` | `/api/battery/ports` | Danh sách cổng COM |
+| `GET` | `/api/battery/report/download` | Tải báo cáo Excel pin |
+| `WS` | `/ws/battery` | WebSocket kiểm tra pin |
 
 ---
 
@@ -211,6 +317,20 @@ Truy cập: `http://localhost:3000` hoặc `http://<IP-máy-chủ>:3000`
 - **Quản lý Người dùng** — Tạo, phân quyền, vô hiệu hoá tài khoản (Admin)
 - **Backup Viewer** — Duyệt và khôi phục file từ snapshot backup
 - **Hồ sơ cá nhân** — Đổi tên, avatar, mật khẩu
+- **Tạo Barcode** — Tạo PDF barcode từ file CSV/Excel đơn hàng
+- **🔋 Kiểm tra Pin** — Kết nối IT8511A+, đo OCV/CCV real-time, biểu đồ điện áp ECharts, báo cáo Excel
+
+---
+
+## 🌐 Đa Ngôn Ngữ
+
+Hệ thống hỗ trợ 3 ngôn ngữ, chuyển đổi ngay lập tức không cần reload trang:
+
+| | Tiếng Việt 🇻🇳 | English 🇬🇧 | 中文 🇨🇳 |
+|---|---|---|---|
+| Header toolbar | Nút VI / EN / 中文 | Same | Same |
+| User dropdown menu | Menu Ngôn ngữ | Language menu | 语言菜单 |
+| Lưu lựa chọn | `localStorage` | `localStorage` | `localStorage` |
 
 ---
 
@@ -230,6 +350,7 @@ http://192.168.1.100:3000
 - ✅ Không cần domain hay SSL
 - ✅ Hỗ trợ tên file CJK (Tiếng Trung, Tiếng Việt có dấu)
 - ✅ Tương thích Windows Server & Ubuntu
+- ✅ Module kiểm tra pin chạy cục bộ trên máy chủ, không cần mạng phụ
 
 ---
 
@@ -243,6 +364,9 @@ JWT_REFRESH_SECRET=your-refresh-secret-here
 UPLOAD_DIR=./uploads
 DATA_DIR=./data
 BACKUP_DIR=./backups
+
+# URL tới Python battery service (mặc định cổng 8765)
+BATTERY_SERVICE_URL=http://127.0.0.1:8765
 ```
 
 ---

@@ -54,6 +54,7 @@ export default {
   users: 'Quản lý người dùng',
   profile: 'Hồ sơ cá nhân',
   settings: 'Cài đặt',
+  language: 'Ngôn ngữ',
 
   // Dashboard
   totalFiles: 'Tổng số file',
