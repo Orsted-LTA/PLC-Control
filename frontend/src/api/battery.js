@@ -1,0 +1,16 @@
+import axios from 'axios';
+
+const api = axios.create({ baseURL: '/api/battery' });
+
+// Attach JWT from localStorage
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+export const getPorts = () => api.get('/ports');
+export const getStatus = () => api.get('/status');
+export const checkHealth = () => api.get('/health');
+export const downloadReport = () =>
+  api.get('/report/download', { responseType: 'blob' });

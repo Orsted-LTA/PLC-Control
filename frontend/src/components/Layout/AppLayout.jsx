@@ -15,6 +15,7 @@ import {
   BellOutlined,
   ClearOutlined,
   QrcodeOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -51,6 +52,7 @@ export default function AppLayout() {
     { key: '/files', icon: <FileOutlined />, label: t('files') },
     { key: '/history', icon: <HistoryOutlined />, label: t('history') },
     { key: '/barcode', icon: <QrcodeOutlined />, label: t('barcode') },
+    { key: '/battery', icon: <ThunderboltOutlined />, label: t('batteryTest') },
     ...(isAdmin ? [
       { key: '/folders', icon: <FolderOutlined />, label: t('folders') },
       { key: '/users', icon: <TeamOutlined />, label: t('users') },

@@ -27,6 +27,8 @@ const tagRoutes = require('./src/routes/tags');
 const commentRoutes = require('./src/routes/comments');
 const notificationsRouter = require('./src/routes/notificationsRouter');
 const barcodeRouter = require('./src/routes/barcode');
+const batteryRouter = require('./src/routes/battery');
+const { initBatteryWebSocket } = require('./src/utils/batterySocket');
 
 // Initialize database
 initDb();
@@ -95,6 +97,7 @@ app.use('/api/tags', tagRoutes);
 app.use('/api/versions', commentRoutes);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/barcode', barcodeRouter);
+app.use('/api/battery', batteryRouter);
 
 // SSE notifications endpoint
 app.get('/api/notifications/stream', authenticateToken, (req, res) => {
@@ -167,7 +170,12 @@ scheduleCleanup();
 scheduleBackup();
 
 // Start server
-app.listen(config.port, config.host, () => {
+const server = require('http').createServer(app);
+
+// Battery WebSocket server (attaches to same HTTP server at /ws/battery)
+initBatteryWebSocket(server);
+
+server.listen(config.port, config.host, () => {
   logger.info(`PLC Control server started`, {
     host: config.host,
     port: config.port,
