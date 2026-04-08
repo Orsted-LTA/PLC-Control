@@ -286,7 +286,7 @@ def _run_test_loop(params: dict) -> None:
                     session["current_readings"].append((round(elapsed, 2), v))
                     session["last_ocv"] = last_ocv
 
-                _broadcast({"type": "reading", "elapsed": round(elapsed, 2), "voltage": v, "phase": "ocv"})
+                _broadcast({"type": "reading", "elapsed": round(elapsed, 2), "voltage": v, "phase": "ocv", "battery_id": tid})
                 time.sleep(0.1)
 
             if last_ocv is None:
@@ -332,7 +332,7 @@ def _run_test_loop(params: dict) -> None:
                     session["current_readings"].append((round(elapsed_total, 2), v_display))
                     session["last_ccv"] = last_ccv
 
-                _broadcast({"type": "reading", "elapsed": round(elapsed_total, 2), "voltage": v_display, "phase": "ccv"})
+                _broadcast({"type": "reading", "elapsed": round(elapsed_total, 2), "voltage": v_display, "phase": "ccv", "battery_id": tid})
                 time.sleep(0.1)
 
             # Turn off load
@@ -372,6 +372,8 @@ def _run_test_loop(params: dict) -> None:
                         session["records"][idx] = record
                     else:
                         session["records"].append(record)
+                    # Auto-stop after retest completes — don't continue to next battery
+                    session["running"] = False
                 else:
                     session["records"].append(record)
 
