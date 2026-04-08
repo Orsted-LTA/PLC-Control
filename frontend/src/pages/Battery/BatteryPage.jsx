@@ -2,16 +2,16 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Card, Form, Select, Input, InputNumber, DatePicker, Button, Table, Tabs,
   Badge, notification, Tooltip, Space, Row, Col, Divider, Tag, Checkbox,
-  Typography,
+  Typography, Upload,
 } from 'antd';
 import {
   ReloadOutlined, DownloadOutlined, DeleteOutlined, PlayCircleOutlined,
-  StopOutlined, DisconnectOutlined, ApiOutlined,
+  StopOutlined, DisconnectOutlined, ApiOutlined, InboxOutlined,
 } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import dayjs from 'dayjs';
 import { useLang } from '../../contexts/LangContext';
-import { downloadReport } from '../../api/battery';
+import { downloadReport, uploadTemplate, downloadReportFromTemplate } from '../../api/battery';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -73,6 +73,10 @@ export default function BatteryPage() {
   // History tab
   const [activeTab, setActiveTab] = useState('results');
 
+  // Excel report template
+  const [templateName, setTemplateName] = useState(null);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+
   // WebSocket
   const wsRef = useRef(null);
   const retryCountRef = useRef(0);
@@ -81,11 +85,11 @@ export default function BatteryPage() {
 
   const buildParams = useCallback(() => ({
     order_id: orderId,
-    test_date: testDate ? testDate.format('YYYY-MM') : '',
-    resistance,
-    ocv_time: ocvTime,
-    load_time: loadTime,
-    k_coeff: kCoeff,
+    date: testDate ? testDate.format('YYYY-MM') : dayjs().format('YYYY-MM'),
+    resistance: parseFloat(resistance),
+    ocv_time: parseFloat(ocvTime),
+    load_time: parseFloat(loadTime),
+    coeff: parseFloat(kCoeff),
   }), [orderId, testDate, resistance, ocvTime, loadTime, kCoeff]);
 
   const sendMsg = useCallback((msg) => {
@@ -291,6 +295,51 @@ export default function BatteryPage() {
   // Clear session
   const handleClearSession = () => {
     sendMsg({ action: 'clear_session' });
+  };
+
+  // Template upload handler
+  const handleTemplateUpload = async ({ file, onSuccess, onError }) => {
+    const formData = new FormData();
+    formData.append('template', file);
+    try {
+      await uploadTemplate(formData);
+      setTemplateName(file.name);
+      notification.success({ message: t('batteryTemplateUploaded') });
+      onSuccess();
+    } catch (e) {
+      notification.error({ message: t('batteryTemplateUploadFailed'), description: e.message });
+      onError(e);
+    }
+  };
+
+  // Download report from template
+  const handleDownloadTemplateReport = async () => {
+    setDownloadingTemplate(true);
+    try {
+      const response = await downloadReportFromTemplate(records);
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const date = testDate ? testDate.format('YYYY-MM') : dayjs().format('YYYY-MM');
+      link.download = `battery_report_${orderId}_${date}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      notification.success({ message: t('batteryDownloadSuccess') });
+    } catch (e) {
+      const status = e.response?.status;
+      if (status === 404) {
+        notification.warning({ message: t('batteryTemplateNotFound') });
+      } else {
+        notification.error({ message: t('batteryDownloadFailed'), description: e.message });
+      }
+    } finally {
+      setDownloadingTemplate(false);
+    }
   };
 
   // ECharts option
@@ -553,6 +602,51 @@ export default function BatteryPage() {
         <span>{t('batteryStatus')}:</span>
         <span>{statusText}</span>
       </div>
+
+      {/* Excel Report Card */}
+      <Card
+        title={t('batteryExcelReport')}
+        size="small"
+        style={{ marginBottom: 16 }}
+        collapsible
+        defaultCollapsed
+      >
+        <Row gutter={16}>
+          <Col xs={24} md={14}>
+            <Upload.Dragger
+              accept=".xlsx"
+              showUploadList={false}
+              customRequest={handleTemplateUpload}
+              style={{ padding: '8px 16px' }}
+            >
+              <p className="ant-upload-drag-icon">
+                <InboxOutlined />
+              </p>
+              <p className="ant-upload-text">{t('batteryTemplateUpload')}</p>
+              <p className="ant-upload-hint">{t('batteryTemplateUploadHint')}</p>
+              {templateName && (
+                <p style={{ color: '#52c41a', marginTop: 4 }}>
+                  {t('batteryCurrentTemplate')}: <strong>{templateName}</strong>
+                </p>
+              )}
+              {!templateName && (
+                <p style={{ color: '#888', marginTop: 4 }}>{t('batteryNoTemplate')}</p>
+              )}
+            </Upload.Dragger>
+          </Col>
+          <Col xs={24} md={10} style={{ display: 'flex', alignItems: 'center' }}>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={handleDownloadTemplateReport}
+              disabled={records.length === 0}
+              loading={downloadingTemplate}
+              block
+            >
+              {t('batteryDownloadTemplateReport')}
+            </Button>
+          </Col>
+        </Row>
+      </Card>
 
       {/* Chart + Results */}
       <Row gutter={16} style={{ marginBottom: 16 }}>

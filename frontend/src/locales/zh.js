@@ -374,4 +374,13 @@ export default {
   batteryDownloadSuccess: '报告已下载',
   batteryDownloadFailed: '下载报告失败',
   batteryNoReport: '当前会话没有可用报告',
+  batteryTemplateUpload: '上传报告模板',
+  batteryTemplateUploadHint: '拖拽或点击选择 .xlsx 模板文件',
+  batteryTemplateUploaded: '模板已保存',
+  batteryTemplateUploadFailed: '模板上传失败',
+  batteryTemplateNotFound: '未找到模板，请先上传。',
+  batteryDownloadTemplateReport: '从模板下载报告',
+  batteryExcelReport: 'Excel报告',
+  batteryCurrentTemplate: '当前模板',
+  batteryNoTemplate: '尚未上传模板',
 };

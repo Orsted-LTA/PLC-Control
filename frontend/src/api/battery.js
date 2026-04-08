@@ -14,3 +14,11 @@ export const getStatus = () => api.get('/status');
 export const checkHealth = () => api.get('/health');
 export const downloadReport = () =>
   api.get('/report/download', { responseType: 'blob' });
+
+export const uploadTemplate = (formData) =>
+  api.post('/upload-template', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+export const downloadReportFromTemplate = (records) =>
+  api.post('/download-report', { records }, { responseType: 'blob' });
