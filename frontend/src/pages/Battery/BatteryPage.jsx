@@ -444,7 +444,7 @@ export default function BatteryPage() {
           <div style={{ maxHeight: 200, overflowY: 'auto', fontSize: 12 }}>
             {sample.map((r, i) => (
               <div key={i} style={{ color: r.phase === 'ocv' ? '#ffee58' : '#0091ea' }}>
-                {r.phase?.toUpperCase()}: {r.v.toFixed(3)}V @ {r.t}s
+                {r.phase?.toUpperCase()}: {r.v != null ? r.v.toFixed(3) : '?'}V @ {r.t ?? '?'}s
               </div>
             ))}
             <div style={{ color: '#888', marginTop: 4 }}>{readings.length} readings total</div>
@@ -452,7 +452,7 @@ export default function BatteryPage() {
         );
         return (
           <Tooltip title={content} placement="right">
-            <span style={{ cursor: 'help', borderBottom: '1px dotted #999' }}>{id}</span>
+            <span style={{ cursor: 'help', borderBottom: '1px dotted #999' }} tabIndex={0}>{id}</span>
           </Tooltip>
         );
       },
