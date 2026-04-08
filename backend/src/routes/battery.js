@@ -118,8 +118,17 @@ router.post('/download-report', async (req, res) => {
       dataMap[rec.id] = rec;
     }
 
-    const fullTagRegex = /^\{\{(OCV|CCV|Time)_(\d+)\}\}$/i;
-    const inlineTagRegex = /\{\{(OCV|CCV|Time)_(\d+)\}\}/gi;
+    const TAG_PATTERN = '(OCV|CCV|Time)_(\\d+)';
+    const fullTagRegex = new RegExp(`^\\{\\{${TAG_PATTERN}\\}\\}$`, 'i');
+    const inlineTagRegex = new RegExp(`\\{\\{${TAG_PATTERN}\\}\\}`, 'gi');
+
+    const getTagValue = (field, rec) => {
+      const f = field.toLowerCase();
+      if (f === 'ocv') return parseFloat(rec.ocv);
+      if (f === 'ccv') return parseFloat(rec.ccv);
+      if (f === 'time') return String(rec.time);
+      return '';
+    };
 
     workbook.eachSheet((sheet) => {
       sheet.eachRow((row) => {
@@ -129,16 +138,10 @@ router.post('/download-report', async (req, res) => {
 
           const fullMatch = val.match(fullTagRegex);
           if (fullMatch) {
-            const field = fullMatch[1].toLowerCase();
+            const field = fullMatch[1];
             const id = parseInt(fullMatch[2], 10);
             const rec = dataMap[id];
-            if (rec) {
-              if (field === 'ocv') cell.value = parseFloat(rec.ocv);
-              else if (field === 'ccv') cell.value = parseFloat(rec.ccv);
-              else if (field === 'time') cell.value = String(rec.time);
-            } else {
-              cell.value = '';
-            }
+            cell.value = rec ? getTagValue(field, rec) : '';
             return;
           }
 
@@ -147,11 +150,8 @@ router.post('/download-report', async (req, res) => {
             const id = parseInt(idStr, 10);
             const rec = dataMap[id];
             if (!rec) return '';
-            const f = field.toLowerCase();
-            if (f === 'ocv') return rec.ocv != null ? rec.ocv : '';
-            if (f === 'ccv') return rec.ccv != null ? rec.ccv : '';
-            if (f === 'time') return rec.time != null ? rec.time : '';
-            return '';
+            const v = getTagValue(field, rec);
+            return v !== '' ? v : '';
           });
 
           if (replaced !== val) cell.value = replaced;

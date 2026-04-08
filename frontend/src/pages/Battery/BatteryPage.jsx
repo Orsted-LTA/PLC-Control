@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Card, Form, Select, Input, InputNumber, DatePicker, Button, Table, Tabs,
   Badge, notification, Tooltip, Space, Row, Col, Divider, Tag, Checkbox,
-  Typography, Upload,
+  Typography, Upload, Collapse,
 } from 'antd';
 import {
   ReloadOutlined, DownloadOutlined, DeleteOutlined, PlayCircleOutlined,
@@ -604,49 +604,50 @@ export default function BatteryPage() {
       </div>
 
       {/* Excel Report Card */}
-      <Card
-        title={t('batteryExcelReport')}
-        size="small"
+      <Collapse
         style={{ marginBottom: 16 }}
-        collapsible
-        defaultCollapsed
-      >
-        <Row gutter={16}>
-          <Col xs={24} md={14}>
-            <Upload.Dragger
-              accept=".xlsx"
-              showUploadList={false}
-              customRequest={handleTemplateUpload}
-              style={{ padding: '8px 16px' }}
-            >
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined />
-              </p>
-              <p className="ant-upload-text">{t('batteryTemplateUpload')}</p>
-              <p className="ant-upload-hint">{t('batteryTemplateUploadHint')}</p>
-              {templateName && (
-                <p style={{ color: '#52c41a', marginTop: 4 }}>
-                  {t('batteryCurrentTemplate')}: <strong>{templateName}</strong>
-                </p>
-              )}
-              {!templateName && (
-                <p style={{ color: '#888', marginTop: 4 }}>{t('batteryNoTemplate')}</p>
-              )}
-            </Upload.Dragger>
-          </Col>
-          <Col xs={24} md={10} style={{ display: 'flex', alignItems: 'center' }}>
-            <Button
-              icon={<DownloadOutlined />}
-              onClick={handleDownloadTemplateReport}
-              disabled={records.length === 0}
-              loading={downloadingTemplate}
-              block
-            >
-              {t('batteryDownloadTemplateReport')}
-            </Button>
-          </Col>
-        </Row>
-      </Card>
+        items={[{
+          key: 'excel-report',
+          label: t('batteryExcelReport'),
+          children: (
+            <Row gutter={16}>
+              <Col xs={24} md={14}>
+                <Upload.Dragger
+                  accept=".xlsx"
+                  showUploadList={false}
+                  customRequest={handleTemplateUpload}
+                  style={{ padding: '8px 16px' }}
+                >
+                  <p className="ant-upload-drag-icon">
+                    <InboxOutlined />
+                  </p>
+                  <p className="ant-upload-text">{t('batteryTemplateUpload')}</p>
+                  <p className="ant-upload-hint">{t('batteryTemplateUploadHint')}</p>
+                  {templateName && (
+                    <p style={{ color: '#52c41a', marginTop: 4 }}>
+                      {t('batteryCurrentTemplate')}: <strong>{templateName}</strong>
+                    </p>
+                  )}
+                  {!templateName && (
+                    <p style={{ color: '#888', marginTop: 4 }}>{t('batteryNoTemplate')}</p>
+                  )}
+                </Upload.Dragger>
+              </Col>
+              <Col xs={24} md={10} style={{ display: 'flex', alignItems: 'center' }}>
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={handleDownloadTemplateReport}
+                  disabled={records.length === 0}
+                  loading={downloadingTemplate}
+                  block
+                >
+                  {t('batteryDownloadTemplateReport')}
+                </Button>
+              </Col>
+            </Row>
+          ),
+        }]}
+      />
 
       {/* Chart + Results */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
