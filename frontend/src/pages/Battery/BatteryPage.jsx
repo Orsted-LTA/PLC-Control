@@ -168,7 +168,9 @@ export default function BatteryPage() {
             return [...prev, msg.record];
           });
           setHistoryRecords((prev) => {
-            const entry = { ...msg.record, _session: new Date().toLocaleDateString(lang) };
+            const localeMap = { vi: 'vi-VN', en: 'en-US', zh: 'zh-CN' };
+            const dateLocale = localeMap[lang] || lang;
+            const entry = { ...msg.record, _session: new Date().toLocaleDateString(dateLocale) };
             const next = [...prev, entry];
             try { localStorage.setItem('battery_history', JSON.stringify(next.slice(-500))); } catch {}
             return next.slice(-500);
