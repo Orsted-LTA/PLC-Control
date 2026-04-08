@@ -16,9 +16,7 @@ export const downloadReport = () =>
   api.get('/report/download', { responseType: 'blob' });
 
 export const uploadTemplate = (formData) =>
-  api.post('/upload-template', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  api.post('/upload-template', formData);
 
 export const downloadReportFromTemplate = (records) =>
   api.post('/download-report', { records }, { responseType: 'blob' });
