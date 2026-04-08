@@ -70,6 +70,9 @@ export default function BatteryPage() {
   // Results
   const [records, setRecords] = useState([]);
 
+  // Readings grouped by battery id for tooltip display
+  const [readingsByBattery, setReadingsByBattery] = useState({});
+
   // History tab — persistent across reloads via localStorage
   const [historyRecords, setHistoryRecords] = useState(() => {
     try {
@@ -153,6 +156,13 @@ export default function BatteryPage() {
       case 'reading':
         if (msg.elapsed !== undefined && msg.voltage !== undefined) {
           setChartData((prev) => [...prev, [msg.elapsed, msg.voltage]]);
+          if (msg.battery_id !== undefined) {
+            setReadingsByBattery((prev) => {
+              const id = msg.battery_id;
+              const list = prev[id] || [];
+              return { ...prev, [id]: [...list, { t: msg.elapsed, v: msg.voltage, phase: msg.phase }] };
+            });
+          }
         }
         break;
 
@@ -193,6 +203,7 @@ export default function BatteryPage() {
       case 'session_cleared':
         setChartData([]);
         setRecords([]);
+        setReadingsByBattery({});
         notification.success({ message: t('batterySessionCleared') });
         break;
 
@@ -207,7 +218,7 @@ export default function BatteryPage() {
 
   const connectWs = useCallback(() => {
     if (!mountedRef.current) return;
-    const token = localStorage.getItem('token') || '';
+    const token = localStorage.getItem('accessToken') || '';
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const url = `${protocol}://${window.location.host}/ws/battery?token=${encodeURIComponent(token)}`;
 
@@ -419,7 +430,33 @@ export default function BatteryPage() {
 
   // Results table columns
   const columns = [
-    { title: t('batteryId'), dataIndex: 'id', key: 'id', width: 60 },
+    {
+      title: t('batteryId'),
+      dataIndex: 'id',
+      key: 'id',
+      width: 60,
+      render: (id) => {
+        const readings = readingsByBattery[id];
+        if (!readings || readings.length === 0) return id;
+        const step = Math.max(1, Math.floor(readings.length / 10));
+        const sample = readings.filter((_, i) => i % step === 0).slice(0, 10);
+        const content = (
+          <div style={{ maxHeight: 200, overflowY: 'auto', fontSize: 12 }}>
+            {sample.map((r, i) => (
+              <div key={i} style={{ color: r.phase === 'ocv' ? '#ffee58' : '#0091ea' }}>
+                {r.phase?.toUpperCase()}: {r.v.toFixed(3)}V @ {r.t}s
+              </div>
+            ))}
+            <div style={{ color: '#888', marginTop: 4 }}>{readings.length} readings total</div>
+          </div>
+        );
+        return (
+          <Tooltip title={content} placement="right">
+            <span style={{ cursor: 'help', borderBottom: '1px dotted #999' }}>{id}</span>
+          </Tooltip>
+        );
+      },
+    },
     { title: t('batteryOcv'), dataIndex: 'ocv', key: 'ocv', width: 90, render: (v) => v != null ? v.toFixed(3) : '-' },
     { title: t('batteryCcv'), dataIndex: 'ccv', key: 'ccv', width: 90, render: (v) => v != null ? v.toFixed(3) : '-' },
     { title: t('batteryTime'), dataIndex: 'time', key: 'time', width: 80, render: (v) => v != null ? String(v) : '-' },
