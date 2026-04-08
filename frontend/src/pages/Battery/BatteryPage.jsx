@@ -138,31 +138,36 @@ export default function BatteryPage() {
 
       case 'test_stopped':
         setRunning(false);
+        setStatusText('Stopped');
+        setStatusColor(getStatusColor('Stopped'));
         notification.info({ message: t('batteryTestStopped') });
         break;
 
       case 'reading':
-        if (msg.time !== undefined && msg.voltage !== undefined) {
-          setChartData((prev) => [...prev, [msg.time, msg.voltage]]);
+        if (msg.elapsed !== undefined && msg.voltage !== undefined) {
+          setChartData((prev) => [...prev, [msg.elapsed, msg.voltage]]);
         }
         break;
 
       case 'record':
-        if (msg.data) {
+        if (msg.record) {
           setRecords((prev) => {
-            const idx = prev.findIndex((r) => r.id === msg.data.id);
+            const idx = prev.findIndex((r) => r.id === msg.record.id);
             if (idx >= 0) {
               const updated = [...prev];
-              updated[idx] = msg.data;
+              updated[idx] = msg.record;
               return updated;
             }
-            return [...prev, msg.data];
+            return [...prev, msg.record];
           });
         }
         break;
 
       case 'status':
-        if (msg.data) {
+        if (msg.text) {
+          setStatusText(msg.text);
+          setStatusColor(getStatusColor(msg.text));
+        } else if (msg.data) {
           const text = msg.data.status_text || 'Waiting...';
           setStatusText(text);
           setStatusColor(getStatusColor(text));
@@ -335,7 +340,15 @@ export default function BatteryPage() {
       if (status === 404) {
         notification.warning({ message: t('batteryTemplateNotFound') });
       } else {
-        notification.error({ message: t('batteryDownloadFailed'), description: e.message });
+        let errMsg = e.message;
+        if (e.response?.data instanceof Blob) {
+          try {
+            const text = await e.response.data.text();
+            const parsed = JSON.parse(text);
+            errMsg = parsed.error || parsed.detail || errMsg;
+          } catch (_parseErr) { /* blob is not JSON, keep original message */ }
+        }
+        notification.error({ message: t('batteryDownloadFailed'), description: errMsg });
       }
     } finally {
       setDownloadingTemplate(false);

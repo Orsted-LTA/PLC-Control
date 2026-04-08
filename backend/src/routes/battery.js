@@ -87,12 +87,17 @@ router.get('/health', async (req, res) => {
 });
 
 // POST /api/battery/upload-template — save uploaded .xlsx template
-router.post('/upload-template', upload.single('template'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded or invalid file type' });
-  }
-  logger.info('Battery template uploaded', { filename: req.file.filename });
-  res.json({ ok: true, message: 'Template saved' });
+router.post('/upload-template', (req, res) => {
+  upload.single('template')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded or invalid file type' });
+    }
+    logger.info('Battery template uploaded', { filename: req.file.filename });
+    res.json({ ok: true, message: 'Template saved' });
+  });
 });
 
 // POST /api/battery/download-report — inject test data into template and return xlsx
