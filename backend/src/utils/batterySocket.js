@@ -4,7 +4,7 @@
  * to all connected browser clients, and proxies control commands
  * from the browser to the Python service.
  */
-const { WebSocketServer } = require('ws');
+const { WebSocketServer, WebSocket } = require('ws');
 const http = require('http');
 const axios = require('axios');
 const logger = require('./logger');
@@ -194,14 +194,14 @@ function broadcast(data) {
   const str = JSON.stringify(data);
   for (const [ws] of clients) {
     try {
-      if (ws.readyState === ws.OPEN) ws.send(str);
+      if (ws.readyState === WebSocket.OPEN) ws.send(str);
     } catch (_) {}
   }
 }
 
 function sendToClient(ws, data) {
   try {
-    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(data));
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
   } catch (_) {}
 }
 

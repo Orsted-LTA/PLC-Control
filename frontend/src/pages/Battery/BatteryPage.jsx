@@ -663,7 +663,7 @@ export default function BatteryPage() {
         <Button
           icon={<DeleteOutlined />}
           onClick={handleClearSession}
-          disabled={!connected && records.length === 0}
+          disabled={!connected || records.length === 0}
         >
           {t('batteryClearSession')}
         </Button>
