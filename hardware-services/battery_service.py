@@ -215,7 +215,12 @@ def _run_test_loop(params: dict) -> None:
             else:
                 resource_str = f"ASRL{port}::INSTR"
             inst = rm.open_resource(resource_str)
+            inst.baud_rate = params["baud_rate"]
+            inst.data_bits = 8
+            inst.stop_bits = pyvisa.constants.StopBits.one
+            inst.parity = pyvisa.constants.Parity.none
             inst.write_termination = "\n"
+            inst.read_termination = "\n"
             inst.timeout = 5000
 
             inst.write("SYST:REM")
@@ -457,7 +462,12 @@ def connect(req: ConnectRequest):
             resource_str = f"ASRL{port}::INSTR"
 
         inst = rm.open_resource(resource_str)
+        inst.baud_rate = req.baud_rate
+        inst.data_bits = 8
+        inst.stop_bits = pyvisa.constants.StopBits.one
+        inst.parity = pyvisa.constants.Parity.none
         inst.write_termination = "\n"
+        inst.read_termination = "\n"
         inst.timeout = 5000
         idn = inst.query("*IDN?").strip()
         inst.close()
