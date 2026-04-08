@@ -359,6 +359,8 @@ export default {
   batteryAutoScroll: 'Auto-scroll',
   batteryResults: 'Test Results',
   batteryHistory: 'History',
+  batteryClearHistory: 'Clear History',
+  batteryDate: 'Date',
   batteryRetest: 'Re-test',
   batteryId: 'ID',
   batteryOcv: 'OCV (V)',

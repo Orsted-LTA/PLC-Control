@@ -359,6 +359,8 @@ export default {
   batteryAutoScroll: 'Tự cuộn',
   batteryResults: 'Kết quả kiểm tra',
   batteryHistory: 'Lịch sử',
+  batteryClearHistory: 'Xóa lịch sử',
+  batteryDate: 'Ngày',
   batteryRetest: 'Kiểm tra lại',
   batteryId: 'ID',
   batteryOcv: 'OCV (V)',

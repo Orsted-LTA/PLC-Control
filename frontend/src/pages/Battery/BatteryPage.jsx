@@ -38,7 +38,7 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
 
 export default function BatteryPage() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   // Connection state
   const [ports, setPorts] = useState([]);
@@ -70,7 +70,14 @@ export default function BatteryPage() {
   // Results
   const [records, setRecords] = useState([]);
 
-  // History tab
+  // History tab — persistent across reloads via localStorage
+  const [historyRecords, setHistoryRecords] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('battery_history') || '[]');
+    } catch {
+      return [];
+    }
+  });
   const [activeTab, setActiveTab] = useState('results');
 
   // Excel report template
@@ -159,6 +166,14 @@ export default function BatteryPage() {
               return updated;
             }
             return [...prev, msg.record];
+          });
+          setHistoryRecords((prev) => {
+            const localeMap = { vi: 'vi-VN', en: 'en-US', zh: 'zh-CN' };
+            const dateLocale = localeMap[lang] || lang;
+            const entry = { ...msg.record, _session: new Date().toLocaleDateString(dateLocale) };
+            const next = [...prev, entry];
+            try { localStorage.setItem('battery_history', JSON.stringify(next.slice(-500))); } catch {}
+            return next.slice(-500);
           });
         }
         break;
@@ -407,7 +422,7 @@ export default function BatteryPage() {
     { title: t('batteryId'), dataIndex: 'id', key: 'id', width: 60 },
     { title: t('batteryOcv'), dataIndex: 'ocv', key: 'ocv', width: 90, render: (v) => v != null ? v.toFixed(3) : '-' },
     { title: t('batteryCcv'), dataIndex: 'ccv', key: 'ccv', width: 90, render: (v) => v != null ? v.toFixed(3) : '-' },
-    { title: t('batteryTime'), dataIndex: 'time', key: 'time', width: 80, render: (v) => v != null ? v.toFixed(1) : '-' },
+    { title: t('batteryTime'), dataIndex: 'time', key: 'time', width: 80, render: (v) => v != null ? String(v) : '-' },
     {
       title: t('actions'),
       key: 'actions',
@@ -718,25 +733,42 @@ export default function BatteryPage() {
                   key: 'history',
                   label: t('batteryHistory'),
                   children: (
-                    <Table
-                      dataSource={records}
-                      columns={[
-                        { title: t('batteryId'), dataIndex: 'id', key: 'id' },
-                        { title: t('batteryOcv'), dataIndex: 'ocv', key: 'ocv', render: (v) => v != null ? v.toFixed(3) : '-' },
-                        { title: t('batteryCcv'), dataIndex: 'ccv', key: 'ccv', render: (v) => v != null ? v.toFixed(3) : '-' },
-                        {
-                          title: t('status'),
-                          dataIndex: 'status',
-                          key: 'status',
-                          render: (v) => v ? <Tag color="blue">{v}</Tag> : '-',
-                        },
-                      ]}
-                      rowKey="id"
-                      size="small"
-                      pagination={{ pageSize: 8, size: 'small' }}
-                      locale={{ emptyText: t('batteryNoResults') }}
-                      scroll={{ x: true }}
-                    />
+                    <>
+                      <div style={{ marginBottom: 8, textAlign: 'right' }}>
+                        <Button
+                          size="small"
+                          icon={<DeleteOutlined />}
+                          danger
+                          onClick={() => {
+                            setHistoryRecords([]);
+                            localStorage.removeItem('battery_history');
+                          }}
+                        >
+                          {t('batteryClearHistory')}
+                        </Button>
+                      </div>
+                      <Table
+                        dataSource={historyRecords}
+                        columns={[
+                          { title: t('batteryDate'), dataIndex: '_session', key: '_session' },
+                          { title: t('batteryId'), dataIndex: 'id', key: 'id' },
+                          { title: t('batteryOcv'), dataIndex: 'ocv', key: 'ocv', render: (v) => v != null ? v.toFixed(3) : '-' },
+                          { title: t('batteryCcv'), dataIndex: 'ccv', key: 'ccv', render: (v) => v != null ? v.toFixed(3) : '-' },
+                          { title: t('batteryTime'), dataIndex: 'time', key: 'time', render: (v) => v != null ? String(v) : '-' },
+                          {
+                            title: t('status'),
+                            dataIndex: 'status',
+                            key: 'status',
+                            render: (v) => v ? <Tag color="blue">{v}</Tag> : '-',
+                          },
+                        ]}
+                        rowKey={(r, i) => `${r._session}_${r.id}_${i}`}
+                        size="small"
+                        pagination={{ pageSize: 8, size: 'small' }}
+                        locale={{ emptyText: t('batteryNoResults') }}
+                        scroll={{ x: true }}
+                      />
+                    </>
                   ),
                 },
               ]}
