@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Card, Form, Select, Input, InputNumber, DatePicker, Button, Table, Tabs,
   Badge, notification, Tooltip, Space, Row, Col, Divider, Tag, Checkbox,
-  Typography, Upload, Collapse,
+  Typography, Upload, Collapse, Popover,
 } from 'antd';
 import {
   ReloadOutlined, DownloadOutlined, DeleteOutlined, PlayCircleOutlined,
@@ -36,6 +36,38 @@ function getStatusColor(text) {
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
+
+function RowWithPopover({ record, readingsByBattery, buildMiniChartOption, ...props }) {
+  const readings = record ? readingsByBattery[record.id] : null;
+  const hasReadings = readings && readings.length > 0;
+
+  if (!hasReadings) return <tr {...props} />;
+
+  const popoverContent = (
+    <div style={{ background: '#1a1a1a', borderRadius: 6, padding: 4 }}>
+      <ReactECharts
+        option={buildMiniChartOption(record.id)}
+        style={{ height: 160, width: 320 }}
+        theme="dark"
+      />
+      <div style={{ color: '#888', fontSize: 11, textAlign: 'center', marginTop: 2 }}>
+        {readings.length} readings — Pin #{record.id}
+      </div>
+    </div>
+  );
+
+  return (
+    <Popover
+      content={popoverContent}
+      placement="left"
+      mouseEnterDelay={0.3}
+      overlayStyle={{ padding: 0 }}
+      overlayInnerStyle={{ background: '#1a1a1a', padding: 0, border: '1px solid #333' }}
+    >
+      <tr {...props} style={{ ...props.style, cursor: 'pointer' }} />
+    </Popover>
+  );
+}
 
 export default function BatteryPage() {
   const { t, lang } = useLang();
@@ -428,6 +460,24 @@ export default function BatteryPage() {
     ],
   };
 
+  const buildMiniChartOption = useCallback((batteryId) => {
+    const readings = readingsByBattery[batteryId] || [];
+    const ocvData = readings.filter(r => r.phase === 'ocv').map(r => [r.t, r.v]);
+    const ccvData = readings.filter(r => r.phase === 'ccv').map(r => [r.t, r.v]);
+    return {
+      animation: false,
+      backgroundColor: 'transparent',
+      grid: { top: 16, right: 12, bottom: 28, left: 44 },
+      tooltip: { trigger: 'axis', formatter: (params) => params.map(p => `${p.marker}${p.seriesName}: ${p.value[1]?.toFixed(3)}V @ ${p.value[0]}s`).join('<br/>') },
+      xAxis: { type: 'value', name: 's', nameLocation: 'end', axisLabel: { color: '#aaa', fontSize: 10 }, axisLine: { lineStyle: { color: '#444' } }, splitLine: { lineStyle: { color: '#2a2a2a' } } },
+      yAxis: { type: 'value', name: 'V', nameLocation: 'end', axisLabel: { color: '#aaa', fontSize: 10 }, axisLine: { lineStyle: { color: '#444' } }, splitLine: { lineStyle: { color: '#2a2a2a' } } },
+      series: [
+        { name: 'OCV', type: 'line', data: ocvData, symbol: 'none', lineStyle: { color: '#ffee58', width: 1.5 } },
+        { name: 'CCV', type: 'line', data: ccvData, symbol: 'none', lineStyle: { color: '#0091ea', width: 1.5 } },
+      ],
+    };
+  }, [readingsByBattery]);
+
   // Results table columns
   const columns = [
     {
@@ -435,27 +485,7 @@ export default function BatteryPage() {
       dataIndex: 'id',
       key: 'id',
       width: 60,
-      render: (id) => {
-        const readings = readingsByBattery[id];
-        if (!readings || readings.length === 0) return id;
-        const step = Math.max(1, Math.floor(readings.length / 10));
-        const sample = readings.filter((_, i) => i % step === 0).slice(0, 10);
-        const content = (
-          <div style={{ maxHeight: 200, overflowY: 'auto', fontSize: 12 }}>
-            {sample.map((r, i) => (
-              <div key={i} style={{ color: r.phase === 'ocv' ? '#ffee58' : '#0091ea' }}>
-                {r.phase?.toUpperCase()}: {r.v != null ? r.v.toFixed(3) : '?'}V @ {r.t ?? '?'}s
-              </div>
-            ))}
-            <div style={{ color: '#888', marginTop: 4 }}>{readings.length} readings total</div>
-          </div>
-        );
-        return (
-          <Tooltip title={content} placement="right">
-            <span style={{ cursor: 'help', borderBottom: '1px dotted #999' }} tabIndex={0}>{id}</span>
-          </Tooltip>
-        );
-      },
+      render: (id) => <span>{id}</span>,
     },
     { title: t('batteryOcv'), dataIndex: 'ocv', key: 'ocv', width: 90, render: (v) => v != null ? v.toFixed(3) : '-' },
     { title: t('batteryCcv'), dataIndex: 'ccv', key: 'ccv', width: 90, render: (v) => v != null ? v.toFixed(3) : '-' },
@@ -471,6 +501,11 @@ export default function BatteryPage() {
       ),
     },
   ];
+
+  const recordsMap = React.useMemo(
+    () => Object.fromEntries(records.map(r => [String(r.id), r])),
+    [records],
+  );
 
   const inputsDisabled = !connected;
 
@@ -763,6 +798,14 @@ export default function BatteryPage() {
                       pagination={{ pageSize: 8, size: 'small' }}
                       locale={{ emptyText: t('batteryNoResults') }}
                       scroll={{ x: true }}
+                      components={{
+                        body: {
+                          row: (rowProps) => {
+                            const record = recordsMap[String(rowProps['data-row-key'])];
+                            return <RowWithPopover record={record} readingsByBattery={readingsByBattery} buildMiniChartOption={buildMiniChartOption} {...rowProps} />;
+                          },
+                        },
+                      }}
                     />
                   ),
                 },
