@@ -231,14 +231,14 @@ export default function BatteryPage() {
 
   // Connect to device
   const handleConnect = () => {
-    if (!port) {
+    if (!simMode && !port) {
       notification.warning({ message: t('batterySelectPort') });
       return;
     }
     setConnecting(true);
     sendMsg({
       action: 'connect',
-      payload: { port, baud_rate: baudRate, sim_mode: simMode },
+      payload: { port: simMode ? null : port, baud_rate: baudRate, simulation: simMode },
     });
   };
 
