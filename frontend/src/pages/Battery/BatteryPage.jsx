@@ -124,6 +124,8 @@ export default function BatteryPage() {
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef(null);
   const mountedRef = useRef(true);
+  const orderIdRef = useRef(orderId);
+  useEffect(() => { orderIdRef.current = orderId; }, [orderId]);
 
   const buildParams = useCallback(() => ({
     order_id: orderId,
@@ -212,7 +214,7 @@ export default function BatteryPage() {
           setHistoryRecords((prev) => {
             const localeMap = { vi: 'vi-VN', en: 'en-US', zh: 'zh-CN' };
             const dateLocale = localeMap[lang] || lang;
-            const entry = { ...msg.record, _session: new Date().toLocaleDateString(dateLocale) };
+            const entry = { ...msg.record, _session: new Date().toLocaleDateString(dateLocale), _orderId: orderIdRef.current };
             const next = [...prev, entry];
             try { localStorage.setItem('battery_history', JSON.stringify(next.slice(-500))); } catch {}
             return next.slice(-500);
@@ -636,7 +638,7 @@ export default function BatteryPage() {
                     value={resistance}
                     onChange={setResistance}
                     disabled={inputsDisabled}
-                    min={0}
+                    min={0.01}
                     step={0.01}
                     style={{ width: '100%' }}
                   />
@@ -648,7 +650,8 @@ export default function BatteryPage() {
                     value={ocvTime}
                     onChange={setOcvTime}
                     disabled={inputsDisabled}
-                    min={1}
+                    min={0.1}
+                    step={0.1}
                     style={{ width: '100%' }}
                   />
                 </Form.Item>
@@ -659,7 +662,8 @@ export default function BatteryPage() {
                     value={loadTime}
                     onChange={setLoadTime}
                     disabled={inputsDisabled}
-                    min={1}
+                    min={0.1}
+                    step={0.1}
                     style={{ width: '100%' }}
                   />
                 </Form.Item>
@@ -795,9 +799,9 @@ export default function BatteryPage() {
                       columns={columns}
                       rowKey="id"
                       size="small"
-                      pagination={{ pageSize: 8, size: 'small' }}
+                      pagination={false}
                       locale={{ emptyText: t('batteryNoResults') }}
-                      scroll={{ x: true }}
+                      scroll={{ x: true, y: 240 }}
                       components={{
                         body: {
                           row: (rowProps) => {
@@ -831,6 +835,7 @@ export default function BatteryPage() {
                         dataSource={historyRecords}
                         columns={[
                           { title: t('batteryDate'), dataIndex: '_session', key: '_session' },
+                          { title: t('batteryOrderId'), dataIndex: '_orderId', key: '_orderId', render: (v) => v || '-' },
                           { title: t('batteryId'), dataIndex: 'id', key: 'id' },
                           { title: t('batteryOcv'), dataIndex: 'ocv', key: 'ocv', render: (v) => v != null ? v.toFixed(3) : '-' },
                           { title: t('batteryCcv'), dataIndex: 'ccv', key: 'ccv', render: (v) => v != null ? v.toFixed(3) : '-' },
@@ -844,9 +849,9 @@ export default function BatteryPage() {
                         ]}
                         rowKey={(r, i) => `${r._session}_${r.id}_${i}`}
                         size="small"
-                        pagination={{ pageSize: 8, size: 'small' }}
+                        pagination={false}
                         locale={{ emptyText: t('batteryNoResults') }}
-                        scroll={{ x: true }}
+                        scroll={{ x: true, y: 240 }}
                       />
                     </>
                   ),
