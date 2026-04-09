@@ -39,6 +39,10 @@ const RETRY_DELAY_MS = 2000;
 const OCV_TOLERANCE = 0.005;
 const CCV_TOLERANCE = 0.001;
 
+function isOutOfTolerance(value, mean, tolerance) {
+  return mean !== null && value != null && Math.abs(value - mean) > tolerance;
+}
+
 function RowWithPopover({ record, readingsByBattery, buildMiniChartOption, ...props }) {
   const readings = record ? readingsByBattery[record.id] : null;
   const hasReadings = readings && readings.length > 0;
@@ -501,14 +505,14 @@ export default function BatteryPage() {
     {
       title: t('batteryOcv'), dataIndex: 'ocv', key: 'ocv', width: 90,
       render: (v) => {
-        const bad = ocvMean !== null && v != null && Math.abs(v - ocvMean) > OCV_TOLERANCE;
+        const bad = isOutOfTolerance(v, ocvMean, OCV_TOLERANCE);
         return <span style={{ color: bad ? '#ff4d4f' : undefined, fontWeight: bad ? 700 : undefined }}>{v != null ? v.toFixed(3) : '-'}</span>;
       },
     },
     {
       title: t('batteryCcv'), dataIndex: 'ccv', key: 'ccv', width: 90,
       render: (v) => {
-        const bad = ccvMean !== null && v != null && Math.abs(v - ccvMean) > CCV_TOLERANCE;
+        const bad = isOutOfTolerance(v, ccvMean, CCV_TOLERANCE);
         return <span style={{ color: bad ? '#ff4d4f' : undefined, fontWeight: bad ? 700 : undefined }}>{v != null ? v.toFixed(3) : '-'}</span>;
       },
     },
@@ -544,12 +548,16 @@ export default function BatteryPage() {
 
   const prevRecordsLenRef = useRef(0);
   useEffect(() => {
+    if (records.length < prevRecordsLenRef.current) {
+      prevRecordsLenRef.current = records.length;
+      return;
+    }
     if (records.length <= prevRecordsLenRef.current) return;
     prevRecordsLenRef.current = records.length;
     const latest = records[records.length - 1];
     if (!latest) return;
-    const ocvBad = ocvMean !== null && latest.ocv != null && Math.abs(latest.ocv - ocvMean) > OCV_TOLERANCE;
-    const ccvBad = ccvMean !== null && latest.ccv != null && Math.abs(latest.ccv - ccvMean) > CCV_TOLERANCE;
+    const ocvBad = isOutOfTolerance(latest.ocv, ocvMean, OCV_TOLERANCE);
+    const ccvBad = isOutOfTolerance(latest.ccv, ccvMean, CCV_TOLERANCE);
     if (ocvBad || ccvBad) {
       const parts = [];
       if (ocvBad) parts.push(`OCV ${latest.ocv.toFixed(3)}V`);
@@ -894,8 +902,8 @@ export default function BatteryPage() {
                       locale={{ emptyText: t('batteryNoResults') }}
                       scroll={{ x: true, y: 240 }}
                       rowClassName={(record) => {
-                        const ocvBad = ocvMean !== null && record.ocv != null && Math.abs(record.ocv - ocvMean) > OCV_TOLERANCE;
-                        const ccvBad = ccvMean !== null && record.ccv != null && Math.abs(record.ccv - ccvMean) > CCV_TOLERANCE;
+                        const ocvBad = isOutOfTolerance(record.ocv, ocvMean, OCV_TOLERANCE);
+                        const ccvBad = isOutOfTolerance(record.ccv, ccvMean, CCV_TOLERANCE);
                         return (ocvBad || ccvBad) ? 'battery-row-bad' : '';
                       }}
                       components={{
