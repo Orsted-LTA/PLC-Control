@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Card, Form, Select, Input, InputNumber, DatePicker, Button, Table, Tabs,
   Badge, notification, Tooltip, Space, Row, Col, Divider, Tag, Checkbox,
-  Typography, Upload, Collapse, Modal,
+  Typography, Upload, Collapse, Modal, Popover,
 } from 'antd';
 import {
   ReloadOutlined, DownloadOutlined, DeleteOutlined, PlayCircleOutlined,
@@ -59,6 +59,33 @@ function getInitialSession() {
   }
 }
 
+function RowWithPopover({ record, readingsByBattery, buildMiniChartOption, ...rowProps }) {
+  const hasReadings = record && readingsByBattery && (readingsByBattery[record.id] || []).length > 0;
+  if (!hasReadings) {
+    return <tr {...rowProps} />;
+  }
+  const popoverContent = (
+    <div style={{ width: 320, background: '#1a1a1a', borderRadius: 6, padding: 4 }}>
+      <ReactECharts
+        option={buildMiniChartOption(record.id)}
+        style={{ height: 180 }}
+        notMerge
+        theme="dark"
+      />
+    </div>
+  );
+  return (
+    <Popover
+      content={popoverContent}
+      overlayInnerStyle={{ background: '#1a1a1a', padding: 0 }}
+      placement="left"
+      mouseEnterDelay={0.3}
+    >
+      <tr {...rowProps} />
+    </Popover>
+  );
+}
+
 export default function BatteryPage() {
   const { t, lang } = useLang();
 
@@ -98,6 +125,9 @@ export default function BatteryPage() {
 
   // Results
   const [records, setRecords] = useState(() => getInitialSession().records || []);
+
+  // Readings grouped by battery id for mini chart popover
+  const [readingsByBattery, setReadingsByBattery] = useState({});
 
   // History tab — persistent across reloads via localStorage
   const [historyRecords, setHistoryRecords] = useState(() => {
@@ -192,6 +222,13 @@ export default function BatteryPage() {
       case 'reading':
         if (msg.elapsed !== undefined && msg.voltage !== undefined) {
           setChartData((prev) => [...prev, [msg.elapsed, msg.voltage]]);
+          if (msg.battery_id !== undefined) {
+            setReadingsByBattery((prev) => {
+              const id = msg.battery_id;
+              const list = prev[id] || [];
+              return { ...prev, [id]: [...list, { t: msg.elapsed, v: msg.voltage, phase: msg.phase }] };
+            });
+          }
         }
         break;
 
@@ -232,6 +269,7 @@ export default function BatteryPage() {
       case 'session_cleared':
         setChartData([]);
         setRecords([]);
+        setReadingsByBattery({});
         notification.success({ message: t('batterySessionCleared') });
         break;
 
@@ -355,6 +393,7 @@ export default function BatteryPage() {
   const handleClearSession = () => {
     sendMsg({ action: 'clear_session' });
     localStorage.removeItem('battery_session');
+    setReadingsByBattery({});
   };
 
   // Template upload handler
@@ -498,6 +537,40 @@ export default function BatteryPage() {
 
   const ocvSpec = React.useMemo(() => parseStandard(ocvStandard), [ocvStandard]);
   const ccvSpec = React.useMemo(() => parseStandard(ccvStandard), [ccvStandard]);
+
+  const recordsMap = React.useMemo(() => {
+    const map = {};
+    records.forEach((r) => { map[String(r.id)] = r; });
+    return map;
+  }, [records]);
+
+  const buildMiniChartOption = React.useCallback((batteryId) => {
+    const readings = readingsByBattery[batteryId] || [];
+    const ocvData = readings.filter(r => r.phase === 'ocv').map(r => [r.t, r.v]);
+    const ccvData = readings.filter(r => r.phase === 'load').map(r => [r.t, r.v]);
+    return {
+      backgroundColor: 'transparent',
+      grid: { top: 20, right: 16, bottom: 24, left: 48 },
+      tooltip: { trigger: 'axis', formatter: (params) => params.map(p => `${p.marker}${p.seriesName}: ${p.value[1]?.toFixed(3)}V @ ${p.value[0]}s`).join('<br/>') },
+      xAxis: {
+        type: 'value',
+        name: 's',
+        axisLabel: { color: '#aaa', fontSize: 10 },
+        splitLine: { lineStyle: { color: '#2a2a2a' } },
+      },
+      yAxis: {
+        type: 'value',
+        name: 'V',
+        scale: true,
+        axisLabel: { color: '#aaa', fontSize: 10 },
+        splitLine: { lineStyle: { color: '#2a2a2a' } },
+      },
+      series: [
+        { name: 'OCV', type: 'line', data: ocvData, symbol: 'none', lineStyle: { color: '#ffee58', width: 1.5 } },
+        { name: 'CCV', type: 'line', data: ccvData, symbol: 'none', lineStyle: { color: '#0091ea', width: 1.5 } },
+      ],
+    };
+  }, [readingsByBattery]);
 
   const prevRecordsLenRef = useRef(records.length);
   useEffect(() => {
@@ -894,6 +967,14 @@ export default function BatteryPage() {
                         const ccvBad = ccvSpec && record.ccv != null && Math.abs(record.ccv - ccvSpec.center) > ccvSpec.tolerance;
                         return (ocvBad || ccvBad) ? 'battery-row-bad' : '';
                       }}
+                      components={{
+                        body: {
+                          row: (rowProps) => {
+                            const record = recordsMap[String(rowProps['data-row-key'])];
+                            return <RowWithPopover record={record} readingsByBattery={readingsByBattery} buildMiniChartOption={buildMiniChartOption} {...rowProps} />;
+                          },
+                        },
+                      }}
                     />
                   ),
                 },
@@ -1008,6 +1089,7 @@ export default function BatteryPage() {
             localStorage.removeItem('battery_session');
             setRecords([]);
             setChartData([]);
+            setReadingsByBattery({});
             setOrderId('');
             setTestDate(dayjs());
             setBatteryType('LR6');
