@@ -596,6 +596,8 @@ export default function BatteryPage() {
   }, [records, chartData, orderId, testDate, batteryType, productLine, ocvStandard, ccvStandard]);
 
   useEffect(() => {
+    if (sessionStorage.getItem('battery_resume_checked')) return;
+    sessionStorage.setItem('battery_resume_checked', '1');
     try {
       const saved = JSON.parse(localStorage.getItem('battery_session') || '{}');
       if (saved.records && saved.records.length > 0) {
