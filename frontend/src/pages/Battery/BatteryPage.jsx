@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Card, Form, Select, Input, InputNumber, DatePicker, Button, Table, Tabs,
   Badge, notification, Tooltip, Space, Row, Col, Divider, Tag, Checkbox,
-  Typography, Upload, Collapse, Popover,
+  Typography, Upload, Collapse, Popover, Modal,
 } from 'antd';
 import {
   ReloadOutlined, DownloadOutlined, DeleteOutlined, PlayCircleOutlined,
@@ -36,11 +36,21 @@ function getStatusColor(text) {
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
-const OCV_TOLERANCE = 0.005;
-const CCV_TOLERANCE = 0.001;
 
-function isOutOfTolerance(value, mean, tolerance) {
-  return mean !== null && value != null && Math.abs(value - mean) > tolerance;
+function parseStandard(str) {
+  if (!str) return null;
+  // Accept formats: "1.500±0.005" or "1.500+/-0.005" or "1.500 ± 0.005"
+  const match = str.replace(/\+\/-/g, '±').replace(/\s/g, '').match(/^([0-9.]+)±([0-9.]+)$/);
+  if (!match) return null;
+  return { center: parseFloat(match[1]), tolerance: parseFloat(match[2]) };
+}
+
+function getInitialSession() {
+  try {
+    return JSON.parse(localStorage.getItem('battery_session') || '{}');
+  } catch {
+    return {};
+  }
 }
 
 function RowWithPopover({ record, readingsByBattery, buildMiniChartOption, ...props }) {
@@ -53,7 +63,7 @@ function RowWithPopover({ record, readingsByBattery, buildMiniChartOption, ...pr
     <div style={{ background: '#1a1a1a', borderRadius: 6, padding: 4 }}>
       <ReactECharts
         option={buildMiniChartOption(record.id)}
-        style={{ height: 220, width: 400 }}
+        style={{ height: 450, width: 900 }}
         theme="dark"
       />
       <div style={{ color: '#888', fontSize: 11, textAlign: 'center', marginTop: 2 }}>
@@ -90,26 +100,30 @@ export default function BatteryPage() {
   const [port, setPort] = useState('');
   const [baudRate, setBaudRate] = useState(9600);
   const [simMode, setSimMode] = useState(false);
-  const [orderId, setOrderId] = useState('');
-  const [testDate, setTestDate] = useState(dayjs());
+  const [orderId, setOrderId] = useState(() => getInitialSession().orderId || '');
+  const [testDate, setTestDate] = useState(() => {
+    const saved = getInitialSession();
+    return saved.testDate ? dayjs(saved.testDate) : dayjs();
+  });
   const [resistance, setResistance] = useState(0.1);
   const [ocvTime, setOcvTime] = useState(30);
   const [loadTime, setLoadTime] = useState(30);
   const [kCoeff, setKCoeff] = useState(1.0);
-  const [batteryType, setBatteryType] = useState('LR6');
-  const [productLine, setProductLine] = useState('UD+');
-  const [standard, setStandard] = useState('');
+  const [batteryType, setBatteryType] = useState(() => getInitialSession().batteryType || 'LR6');
+  const [productLine, setProductLine] = useState(() => getInitialSession().productLine || 'UD+');
+  const [ocvStandard, setOcvStandard] = useState(() => getInitialSession().ocvStandard || '');
+  const [ccvStandard, setCcvStandard] = useState(() => getInitialSession().ccvStandard || '');
 
   // Display
   const [statusText, setStatusText] = useState('Waiting...');
   const [statusColor, setStatusColor] = useState('#ffffff');
 
   // Chart
-  const [chartData, setChartData] = useState([]);
+  const [chartData, setChartData] = useState(() => getInitialSession().chartData || []);
   const [autoScroll, setAutoScroll] = useState(true);
 
   // Results
-  const [records, setRecords] = useState([]);
+  const [records, setRecords] = useState(() => getInitialSession().records || []);
 
   // Readings grouped by battery id for tooltip display
   const [readingsByBattery, setReadingsByBattery] = useState({});
@@ -123,6 +137,10 @@ export default function BatteryPage() {
     }
   });
   const [activeTab, setActiveTab] = useState('results');
+
+  // Resume session modal
+  const [resumeModalVisible, setResumeModalVisible] = useState(false);
+  const [savedSessionInfo, setSavedSessionInfo] = useState(null);
 
   // Excel report template
   const [templateName, setTemplateName] = useState(null);
@@ -145,8 +163,9 @@ export default function BatteryPage() {
     coeff: parseFloat(kCoeff),
     battery_type: batteryType,
     product_line: productLine,
-    standard: standard,
-  }), [orderId, testDate, resistance, ocvTime, loadTime, kCoeff, batteryType, productLine, standard]);
+    ocv_standard: ocvStandard,
+    ccv_standard: ccvStandard,
+  }), [orderId, testDate, resistance, ocvTime, loadTime, kCoeff, batteryType, productLine, ocvStandard, ccvStandard]);
 
   const sendMsg = useCallback((msg) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -372,6 +391,7 @@ export default function BatteryPage() {
   // Clear session
   const handleClearSession = () => {
     sendMsg({ action: 'clear_session' });
+    localStorage.removeItem('battery_session');
   };
 
   // Template upload handler
@@ -449,6 +469,8 @@ export default function BatteryPage() {
       axisLine: { lineStyle: { color: '#444' } },
       splitLine: { lineStyle: { color: '#2a2a2a' } },
       scale: true,
+      min: (value) => Math.max(0, Math.floor((value.min - 0.1) * 10) / 10),
+      max: (value) => Math.ceil((value.max + 0.05) * 10) / 10,
     },
     dataZoom: autoScroll
       ? [{ type: 'inside', filterMode: 'none' }]
@@ -485,7 +507,7 @@ export default function BatteryPage() {
       grid: { top: 16, right: 12, bottom: 28, left: 44 },
       tooltip: { trigger: 'axis', formatter: (params) => params.map(p => `${p.marker}${p.seriesName}: ${p.value[1]?.toFixed(3)}V @ ${p.value[0]}s`).join('<br/>') },
       xAxis: { type: 'value', name: 's', nameLocation: 'end', axisLabel: { color: '#aaa', fontSize: 10 }, axisLine: { lineStyle: { color: '#444' } }, splitLine: { lineStyle: { color: '#2a2a2a' } } },
-      yAxis: { type: 'value', name: 'V', nameLocation: 'end', axisLabel: { color: '#aaa', fontSize: 10 }, axisLine: { lineStyle: { color: '#444' } }, splitLine: { lineStyle: { color: '#2a2a2a' } }, scale: true },
+      yAxis: { type: 'value', name: 'V', nameLocation: 'end', axisLabel: { color: '#aaa', fontSize: 10 }, axisLine: { lineStyle: { color: '#444' } }, splitLine: { lineStyle: { color: '#2a2a2a' } }, scale: true, min: (value) => Math.max(0, Math.floor((value.min - 0.05) * 100) / 100), max: (value) => Math.ceil((value.max + 0.02) * 100) / 100 },
       series: [
         { name: 'OCV', type: 'line', data: ocvData, symbol: 'none', lineStyle: { color: '#ffee58', width: 1.5 } },
         { name: 'CCV', type: 'line', data: ccvData, symbol: 'none', lineStyle: { color: '#0091ea', width: 1.5 } },
@@ -505,14 +527,14 @@ export default function BatteryPage() {
     {
       title: t('batteryOcv'), dataIndex: 'ocv', key: 'ocv', width: 90,
       render: (v) => {
-        const bad = isOutOfTolerance(v, ocvMean, OCV_TOLERANCE);
+        const bad = ocvSpec && v != null && Math.abs(v - ocvSpec.center) > ocvSpec.tolerance;
         return <span style={{ color: bad ? '#ff4d4f' : undefined, fontWeight: bad ? 700 : undefined }}>{v != null ? v.toFixed(3) : '-'}</span>;
       },
     },
     {
       title: t('batteryCcv'), dataIndex: 'ccv', key: 'ccv', width: 90,
       render: (v) => {
-        const bad = isOutOfTolerance(v, ccvMean, CCV_TOLERANCE);
+        const bad = ccvSpec && v != null && Math.abs(v - ccvSpec.center) > ccvSpec.tolerance;
         return <span style={{ color: bad ? '#ff4d4f' : undefined, fontWeight: bad ? 700 : undefined }}>{v != null ? v.toFixed(3) : '-'}</span>;
       },
     },
@@ -534,43 +556,59 @@ export default function BatteryPage() {
     [records],
   );
 
-  const ocvMean = React.useMemo(() => {
-    const vals = records.filter(r => r.ocv != null).map(r => r.ocv);
-    if (vals.length === 0) return null;
-    return vals.reduce((a, b) => a + b, 0) / vals.length;
-  }, [records]);
+  const ocvSpec = React.useMemo(() => parseStandard(ocvStandard), [ocvStandard]);
+  const ccvSpec = React.useMemo(() => parseStandard(ccvStandard), [ccvStandard]);
 
-  const ccvMean = React.useMemo(() => {
-    const vals = records.filter(r => r.ccv != null).map(r => r.ccv);
-    if (vals.length === 0) return null;
-    return vals.reduce((a, b) => a + b, 0) / vals.length;
-  }, [records]);
-
-  const prevRecordsLenRef = useRef(0);
+  const prevRecordsLenRef = useRef(records.length);
   useEffect(() => {
-    if (records.length < prevRecordsLenRef.current) {
-      prevRecordsLenRef.current = records.length;
-      return;
-    }
     if (records.length <= prevRecordsLenRef.current) return;
     prevRecordsLenRef.current = records.length;
     const latest = records[records.length - 1];
     if (!latest) return;
-    const ocvBad = isOutOfTolerance(latest.ocv, ocvMean, OCV_TOLERANCE);
-    const ccvBad = isOutOfTolerance(latest.ccv, ccvMean, CCV_TOLERANCE);
+    const ocvBad = ocvSpec && latest.ocv != null && Math.abs(latest.ocv - ocvSpec.center) > ocvSpec.tolerance;
+    const ccvBad = ccvSpec && latest.ccv != null && Math.abs(latest.ccv - ccvSpec.center) > ccvSpec.tolerance;
     if (ocvBad || ccvBad) {
       const parts = [];
-      if (ocvBad) parts.push(`OCV ${latest.ocv.toFixed(3)}V`);
-      if (ccvBad) parts.push(`CCV ${latest.ccv.toFixed(3)}V`);
+      if (ocvBad) parts.push(`OCV ${latest.ocv.toFixed(3)}V (spec: ${ocvSpec.center}±${ocvSpec.tolerance})`);
+      if (ccvBad) parts.push(`CCV ${latest.ccv.toFixed(3)}V (spec: ${ccvSpec.center}±${ccvSpec.tolerance})`);
       notification.error({
         message: `⚠️ Pin #${latest.id} ${t('batteryOutOfSpec')}`,
         description: `${parts.join(', ')} — ${t('batteryRetestRequired')}`,
         duration: 0,
       });
     }
-  }, [records, ocvMean, ccvMean, t]);
+  }, [records, ocvSpec, ccvSpec, t]);
+
+  useEffect(() => {
+    try {
+      const sessionData = {
+        records,
+        chartData,
+        orderId,
+        testDate: testDate ? testDate.format('YYYY-MM') : null,
+        batteryType,
+        productLine,
+        ocvStandard,
+        ccvStandard,
+      };
+      localStorage.setItem('battery_session', JSON.stringify(sessionData));
+    } catch {}
+  }, [records, chartData, orderId, testDate, batteryType, productLine, ocvStandard, ccvStandard]);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('battery_resume_checked')) return;
+    sessionStorage.setItem('battery_resume_checked', '1');
+    try {
+      const saved = JSON.parse(localStorage.getItem('battery_session') || '{}');
+      if (saved.records && saved.records.length > 0) {
+        setSavedSessionInfo(saved);
+        setResumeModalVisible(true);
+      }
+    } catch {}
+  }, []);
 
   const inputsDisabled = !connected;
+  const canStart = connected && !running && orderId.trim() !== '' && testDate !== null && ocvStandard.trim() !== '' && ccvStandard.trim() !== '';
 
   return (
     <div>
@@ -769,13 +807,23 @@ export default function BatteryPage() {
                   </Select>
                 </Form.Item>
               </Col>
-              <Col xs={24} sm={8}>
-                <Form.Item label={t('batteryStandard')} style={{ marginBottom: 0 }}>
+              <Col xs={12} sm={8}>
+                <Form.Item label={t('batteryOcvStandard')} style={{ marginBottom: 0 }}>
                   <Input
-                    value={standard}
-                    onChange={(e) => setStandard(e.target.value)}
+                    value={ocvStandard}
+                    onChange={(e) => setOcvStandard(e.target.value)}
                     disabled={inputsDisabled}
-                    placeholder={t('batteryStandardPlaceholder')}
+                    placeholder="e.g. 1.500±0.005"
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={12} sm={8}>
+                <Form.Item label={t('batteryCcvStandard')} style={{ marginBottom: 0 }}>
+                  <Input
+                    value={ccvStandard}
+                    onChange={(e) => setCcvStandard(e.target.value)}
+                    disabled={inputsDisabled}
+                    placeholder="e.g. 1.200±0.001"
                   />
                 </Form.Item>
               </Col>
@@ -902,8 +950,8 @@ export default function BatteryPage() {
                       locale={{ emptyText: t('batteryNoResults') }}
                       scroll={{ x: true, y: 240 }}
                       rowClassName={(record) => {
-                        const ocvBad = isOutOfTolerance(record.ocv, ocvMean, OCV_TOLERANCE);
-                        const ccvBad = isOutOfTolerance(record.ccv, ccvMean, CCV_TOLERANCE);
+                        const ocvBad = ocvSpec && record.ocv != null && Math.abs(record.ocv - ocvSpec.center) > ocvSpec.tolerance;
+                        const ccvBad = ccvSpec && record.ccv != null && Math.abs(record.ccv - ccvSpec.center) > ccvSpec.tolerance;
                         return (ocvBad || ccvBad) ? 'battery-row-bad' : '';
                       }}
                       components={{
@@ -968,16 +1016,18 @@ export default function BatteryPage() {
 
       {/* Action Buttons */}
       <Space wrap>
-        <Button
-          type="primary"
-          size="large"
-          icon={running ? <StopOutlined /> : <PlayCircleOutlined />}
-          danger={running}
-          disabled={!connected}
-          onClick={handleStartStop}
-        >
-          {running ? t('batteryStop') : t('batteryStart')}
-        </Button>
+        <Tooltip title={!canStart && !running ? t('batteryFillRequiredFields') : undefined}>
+          <Button
+            type="primary"
+            size="large"
+            icon={running ? <StopOutlined /> : <PlayCircleOutlined />}
+            danger={running}
+            disabled={running ? false : !canStart}
+            onClick={handleStartStop}
+          >
+            {running ? t('batteryStop') : t('batteryStart')}
+          </Button>
+        </Tooltip>
 
         <Divider type="vertical" />
 
@@ -997,6 +1047,41 @@ export default function BatteryPage() {
           {t('batteryClearSession')}
         </Button>
       </Space>
+      <Modal
+        open={resumeModalVisible}
+        title={t('batteryResumeTitle')}
+        closable={false}
+        maskClosable={false}
+        footer={[
+          <Button key="new" onClick={() => {
+            localStorage.removeItem('battery_session');
+            setRecords([]);
+            setChartData([]);
+            setReadingsByBattery({});
+            setOrderId('');
+            setTestDate(dayjs());
+            setBatteryType('LR6');
+            setProductLine('UD+');
+            setOcvStandard('');
+            setCcvStandard('');
+            setResumeModalVisible(false);
+          }}>{t('batteryNewSession')}</Button>,
+          <Button key="continue" type="primary" onClick={() => {
+            setResumeModalVisible(false);
+          }}>{t('batteryContinueSession')}</Button>,
+        ]}
+      >
+        <p>{t('batteryResumeDesc')}</p>
+        {savedSessionInfo && (
+          <ul>
+            <li><strong>{t('batteryOrderId')}:</strong> {savedSessionInfo.orderId || '-'}</li>
+            <li><strong>{t('batteryType')}:</strong> {savedSessionInfo.batteryType || '-'}</li>
+            <li><strong>{t('batteryProductLine')}:</strong> {savedSessionInfo.productLine || '-'}</li>
+            <li><strong>{t('batteryDate')}:</strong> {savedSessionInfo.testDate || '-'}</li>
+            <li><strong>{t('batteryResults')}:</strong> {savedSessionInfo.records?.length || 0} {t('batteryId')}</li>
+          </ul>
+        )}
+      </Modal>
     </div>
   );
 }
