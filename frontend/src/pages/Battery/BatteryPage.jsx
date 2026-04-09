@@ -124,6 +124,8 @@ export default function BatteryPage() {
 
   // Chart
   const [chartData, setChartData] = useState(() => getInitialSession().chartData || []);
+  const [chartDataOCV, setChartDataOCV] = useState(() => getInitialSession().chartDataOCV || []);
+  const [chartDataCCV, setChartDataCCV] = useState(() => getInitialSession().chartDataCCV || []);
   const [autoScroll, setAutoScroll] = useState(true);
 
   // Results
@@ -225,6 +227,11 @@ export default function BatteryPage() {
       case 'reading':
         if (msg.elapsed !== undefined && msg.voltage !== undefined) {
           setChartData((prev) => [...prev, [msg.elapsed, msg.voltage]]);
+          if (msg.phase === 'ocv') {
+            setChartDataOCV((prev) => [...prev, [msg.elapsed, msg.voltage]]);
+          } else if (msg.phase === 'ccv') {
+            setChartDataCCV((prev) => [...prev, [msg.elapsed, msg.voltage]]);
+          }
           if (msg.battery_id !== undefined) {
             setReadingsByBattery((prev) => {
               const id = msg.battery_id;
@@ -271,6 +278,8 @@ export default function BatteryPage() {
 
       case 'session_cleared':
         setChartData([]);
+        setChartDataOCV([]);
+        setChartDataCCV([]);
         setRecords([]);
         setReadingsByBattery({});
         notification.success({ message: t('batterySessionCleared') });
@@ -456,7 +465,11 @@ export default function BatteryPage() {
   const chartOption = {
     animation: false,
     backgroundColor: 'transparent',
-    grid: { top: 24, right: 24, bottom: 40, left: 56 },
+    grid: { top: 36, right: 24, bottom: 40, left: 56 },
+    legend: {
+      top: 4,
+      textStyle: { color: '#aaa', fontSize: 12 },
+    },
     tooltip: { trigger: 'axis', formatter: (params) => params.map(p => `${p.marker}${p.seriesName}: ${p.value[1]?.toFixed(3)} V @ ${p.value[0]}s`).join('<br/>') },
     xAxis: {
       type: 'value',
@@ -482,18 +495,29 @@ export default function BatteryPage() {
       : [{ type: 'inside' }, { type: 'slider', height: 20, bottom: 4 }],
     series: [
       {
-        name: 'Voltage',
+        name: 'OCV',
         type: 'line',
-        data: chartData,
+        data: chartDataOCV,
         symbol: 'none',
-        lineStyle: { color: '#0091ea', width: 2 },
-        areaStyle: { color: 'rgba(0,145,234,0.08)' },
-        markArea: chartData.length > 0 && ocvTime > 0 ? {
+        lineStyle: { color: '#ffee58', width: 2 },
+        markArea: (chartDataOCV.length > 0 || chartDataCCV.length > 0) && ocvTime > 0 ? {
           silent: true,
           data: [[
             { name: 'OCV', xAxis: 0, itemStyle: { color: 'rgba(255,238,88,0.08)' } },
             { xAxis: ocvTime },
-          ], [
+          ]],
+        } : undefined,
+      },
+      {
+        name: 'CCV',
+        type: 'line',
+        data: chartDataCCV,
+        symbol: 'none',
+        lineStyle: { color: '#0091ea', width: 2 },
+        areaStyle: { color: 'rgba(0,145,234,0.08)' },
+        markArea: (chartDataOCV.length > 0 || chartDataCCV.length > 0) && ocvTime > 0 ? {
+          silent: true,
+          data: [[
             { name: 'Load', xAxis: ocvTime, itemStyle: { color: 'rgba(0,229,255,0.06)' } },
             { xAxis: ocvTime + loadTime },
           ]],
@@ -556,7 +580,7 @@ export default function BatteryPage() {
   const buildMiniChartOption = React.useCallback((batteryId) => {
     const readings = readingsByBattery[batteryId] || [];
     const ocvData = readings.filter(r => r.phase === 'ocv').map(r => [r.t, r.v]);
-    const ccvData = readings.filter(r => r.phase === 'load').map(r => [r.t, r.v]);
+    const ccvData = readings.filter(r => r.phase === 'ccv').map(r => [r.t, r.v]);
     return {
       backgroundColor: 'transparent',
       grid: { top: 20, right: 16, bottom: 24, left: 48 },
@@ -591,8 +615,8 @@ export default function BatteryPage() {
     const ccvBad = ccvSpec && latest.ccv != null && Math.abs(latest.ccv - ccvSpec.center) > ccvSpec.tolerance;
     if (ocvBad || ccvBad) {
       const parts = [];
-      if (ocvBad) parts.push(`OCV ${latest.ocv.toFixed(3)}V (spec: ${ocvSpec.center}±${ocvSpec.tolerance})`);
-      if (ccvBad) parts.push(`CCV ${latest.ccv.toFixed(3)}V (spec: ${ccvSpec.center}±${ccvSpec.tolerance})`);
+      if (ocvBad) parts.push(`OCV ${latest.ocv.toFixed(3)}V (spec: ${ocvSpec.center}±${OCV_TOLERANCE})`);
+      if (ccvBad) parts.push(`CCV ${latest.ccv.toFixed(3)}V (spec: ${ccvSpec.center}±${CCV_TOLERANCE})`);
       notification.error({
         message: `⚠️ Pin #${latest.id} ${t('batteryOutOfSpec')}`,
         description: `${parts.join(', ')} — ${t('batteryRetestRequired')}`,
@@ -606,6 +630,8 @@ export default function BatteryPage() {
       const sessionData = {
         records,
         chartData,
+        chartDataOCV,
+        chartDataCCV,
         orderId,
         testDate: testDate ? testDate.format('YYYY-MM') : null,
         batteryType,
@@ -615,7 +641,7 @@ export default function BatteryPage() {
       };
       localStorage.setItem('battery_session', JSON.stringify(sessionData));
     } catch {}
-  }, [records, chartData, orderId, testDate, batteryType, productLine, ocvCenter, ccvCenter]);
+  }, [records, chartData, chartDataOCV, chartDataCCV, orderId, testDate, batteryType, productLine, ocvCenter, ccvCenter]);
 
   useEffect(() => {
     try {
