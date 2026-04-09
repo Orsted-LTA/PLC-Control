@@ -500,7 +500,7 @@ export default function BatteryPage() {
         data: chartDataOCV,
         symbol: 'none',
         lineStyle: { color: '#ffee58', width: 2 },
-        markArea: chartDataOCV.length > 0 && ocvTime > 0 ? {
+        markArea: (chartDataOCV.length > 0 || chartDataCCV.length > 0) && ocvTime > 0 ? {
           silent: true,
           data: [[
             { name: 'OCV', xAxis: 0, itemStyle: { color: 'rgba(255,238,88,0.08)' } },
@@ -515,7 +515,7 @@ export default function BatteryPage() {
         symbol: 'none',
         lineStyle: { color: '#0091ea', width: 2 },
         areaStyle: { color: 'rgba(0,145,234,0.08)' },
-        markArea: chartDataCCV.length > 0 && ocvTime > 0 ? {
+        markArea: (chartDataOCV.length > 0 || chartDataCCV.length > 0) && ocvTime > 0 ? {
           silent: true,
           data: [[
             { name: 'Load', xAxis: ocvTime, itemStyle: { color: 'rgba(0,229,255,0.06)' } },
