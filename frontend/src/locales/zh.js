@@ -385,4 +385,10 @@ export default {
   batteryExcelReport: 'Excel报告',
   batteryCurrentTemplate: '当前模板',
   batteryNoTemplate: '尚未上传模板',
+  batteryType: '电池类型',
+  batteryProductLine: '产品线',
+  batteryStandard: '标准',
+  batteryStandardPlaceholder: '输入标准...',
+  batteryOutOfSpec: '超出规格',
+  batteryRetestRequired: '需要重新测试',
 };

@@ -385,4 +385,10 @@ export default {
   batteryExcelReport: 'Excel Report',
   batteryCurrentTemplate: 'Current Template',
   batteryNoTemplate: 'No template uploaded',
+  batteryType: 'Battery Type',
+  batteryProductLine: 'Product Line',
+  batteryStandard: 'Standard',
+  batteryStandardPlaceholder: 'Enter standard...',
+  batteryOutOfSpec: 'out of spec',
+  batteryRetestRequired: 'Retest required',
 };

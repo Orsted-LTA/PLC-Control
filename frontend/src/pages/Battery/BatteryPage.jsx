@@ -36,6 +36,12 @@ function getStatusColor(text) {
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
+const OCV_TOLERANCE = 0.005;
+const CCV_TOLERANCE = 0.001;
+
+function isOutOfTolerance(value, mean, tolerance) {
+  return mean !== null && value != null && Math.abs(value - mean) > tolerance;
+}
 
 function RowWithPopover({ record, readingsByBattery, buildMiniChartOption, ...props }) {
   const readings = record ? readingsByBattery[record.id] : null;
@@ -47,7 +53,7 @@ function RowWithPopover({ record, readingsByBattery, buildMiniChartOption, ...pr
     <div style={{ background: '#1a1a1a', borderRadius: 6, padding: 4 }}>
       <ReactECharts
         option={buildMiniChartOption(record.id)}
-        style={{ height: 160, width: 320 }}
+        style={{ height: 220, width: 400 }}
         theme="dark"
       />
       <div style={{ color: '#888', fontSize: 11, textAlign: 'center', marginTop: 2 }}>
@@ -90,6 +96,9 @@ export default function BatteryPage() {
   const [ocvTime, setOcvTime] = useState(30);
   const [loadTime, setLoadTime] = useState(30);
   const [kCoeff, setKCoeff] = useState(1.0);
+  const [batteryType, setBatteryType] = useState('LR6');
+  const [productLine, setProductLine] = useState('UD+');
+  const [standard, setStandard] = useState('');
 
   // Display
   const [statusText, setStatusText] = useState('Waiting...');
@@ -134,7 +143,10 @@ export default function BatteryPage() {
     ocv_time: parseFloat(ocvTime),
     load_time: parseFloat(loadTime),
     coeff: parseFloat(kCoeff),
-  }), [orderId, testDate, resistance, ocvTime, loadTime, kCoeff]);
+    battery_type: batteryType,
+    product_line: productLine,
+    standard: standard,
+  }), [orderId, testDate, resistance, ocvTime, loadTime, kCoeff, batteryType, productLine, standard]);
 
   const sendMsg = useCallback((msg) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -436,9 +448,10 @@ export default function BatteryPage() {
       axisLabel: { color: '#aaa' },
       axisLine: { lineStyle: { color: '#444' } },
       splitLine: { lineStyle: { color: '#2a2a2a' } },
+      scale: true,
     },
     dataZoom: autoScroll
-      ? []
+      ? [{ type: 'inside', filterMode: 'none' }]
       : [{ type: 'inside' }, { type: 'slider', height: 20, bottom: 4 }],
     series: [
       {
@@ -472,7 +485,7 @@ export default function BatteryPage() {
       grid: { top: 16, right: 12, bottom: 28, left: 44 },
       tooltip: { trigger: 'axis', formatter: (params) => params.map(p => `${p.marker}${p.seriesName}: ${p.value[1]?.toFixed(3)}V @ ${p.value[0]}s`).join('<br/>') },
       xAxis: { type: 'value', name: 's', nameLocation: 'end', axisLabel: { color: '#aaa', fontSize: 10 }, axisLine: { lineStyle: { color: '#444' } }, splitLine: { lineStyle: { color: '#2a2a2a' } } },
-      yAxis: { type: 'value', name: 'V', nameLocation: 'end', axisLabel: { color: '#aaa', fontSize: 10 }, axisLine: { lineStyle: { color: '#444' } }, splitLine: { lineStyle: { color: '#2a2a2a' } } },
+      yAxis: { type: 'value', name: 'V', nameLocation: 'end', axisLabel: { color: '#aaa', fontSize: 10 }, axisLine: { lineStyle: { color: '#444' } }, splitLine: { lineStyle: { color: '#2a2a2a' } }, scale: true },
       series: [
         { name: 'OCV', type: 'line', data: ocvData, symbol: 'none', lineStyle: { color: '#ffee58', width: 1.5 } },
         { name: 'CCV', type: 'line', data: ccvData, symbol: 'none', lineStyle: { color: '#0091ea', width: 1.5 } },
@@ -489,8 +502,20 @@ export default function BatteryPage() {
       width: 60,
       render: (id) => <span>{id}</span>,
     },
-    { title: t('batteryOcv'), dataIndex: 'ocv', key: 'ocv', width: 90, render: (v) => v != null ? v.toFixed(3) : '-' },
-    { title: t('batteryCcv'), dataIndex: 'ccv', key: 'ccv', width: 90, render: (v) => v != null ? v.toFixed(3) : '-' },
+    {
+      title: t('batteryOcv'), dataIndex: 'ocv', key: 'ocv', width: 90,
+      render: (v) => {
+        const bad = isOutOfTolerance(v, ocvMean, OCV_TOLERANCE);
+        return <span style={{ color: bad ? '#ff4d4f' : undefined, fontWeight: bad ? 700 : undefined }}>{v != null ? v.toFixed(3) : '-'}</span>;
+      },
+    },
+    {
+      title: t('batteryCcv'), dataIndex: 'ccv', key: 'ccv', width: 90,
+      render: (v) => {
+        const bad = isOutOfTolerance(v, ccvMean, CCV_TOLERANCE);
+        return <span style={{ color: bad ? '#ff4d4f' : undefined, fontWeight: bad ? 700 : undefined }}>{v != null ? v.toFixed(3) : '-'}</span>;
+      },
+    },
     { title: t('batteryTime'), dataIndex: 'time', key: 'time', width: 80, render: (v) => v != null ? String(v) : '-' },
     {
       title: t('actions'),
@@ -509,10 +534,47 @@ export default function BatteryPage() {
     [records],
   );
 
+  const ocvMean = React.useMemo(() => {
+    const vals = records.filter(r => r.ocv != null).map(r => r.ocv);
+    if (vals.length === 0) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  }, [records]);
+
+  const ccvMean = React.useMemo(() => {
+    const vals = records.filter(r => r.ccv != null).map(r => r.ccv);
+    if (vals.length === 0) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  }, [records]);
+
+  const prevRecordsLenRef = useRef(0);
+  useEffect(() => {
+    if (records.length < prevRecordsLenRef.current) {
+      prevRecordsLenRef.current = records.length;
+      return;
+    }
+    if (records.length <= prevRecordsLenRef.current) return;
+    prevRecordsLenRef.current = records.length;
+    const latest = records[records.length - 1];
+    if (!latest) return;
+    const ocvBad = isOutOfTolerance(latest.ocv, ocvMean, OCV_TOLERANCE);
+    const ccvBad = isOutOfTolerance(latest.ccv, ccvMean, CCV_TOLERANCE);
+    if (ocvBad || ccvBad) {
+      const parts = [];
+      if (ocvBad) parts.push(`OCV ${latest.ocv.toFixed(3)}V`);
+      if (ccvBad) parts.push(`CCV ${latest.ccv.toFixed(3)}V`);
+      notification.error({
+        message: `⚠️ Pin #${latest.id} ${t('batteryOutOfSpec')}`,
+        description: `${parts.join(', ')} — ${t('batteryRetestRequired')}`,
+        duration: 0,
+      });
+    }
+  }, [records, ocvMean, ccvMean, t]);
+
   const inputsDisabled = !connected;
 
   return (
     <div>
+      <style>{`.battery-row-bad td { background: rgba(255,77,79,0.12) !important; }`}</style>
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
         <Title level={3} style={{ marginBottom: 4 }}>
@@ -680,6 +742,43 @@ export default function BatteryPage() {
                   />
                 </Form.Item>
               </Col>
+              <Col xs={12} sm={8}>
+                <Form.Item label={t('batteryType')} style={{ marginBottom: 0 }}>
+                  <Select
+                    value={batteryType}
+                    onChange={setBatteryType}
+                    disabled={inputsDisabled}
+                    style={{ width: '100%' }}
+                  >
+                    <Option value="LR6">LR6</Option>
+                    <Option value="LR03">LR03</Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col xs={12} sm={8}>
+                <Form.Item label={t('batteryProductLine')} style={{ marginBottom: 0 }}>
+                  <Select
+                    value={productLine}
+                    onChange={setProductLine}
+                    disabled={inputsDisabled}
+                    style={{ width: '100%' }}
+                  >
+                    <Option value="UD+">UD+</Option>
+                    <Option value="UD">UD</Option>
+                    <Option value="HP">HP</Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Form.Item label={t('batteryStandard')} style={{ marginBottom: 0 }}>
+                  <Input
+                    value={standard}
+                    onChange={(e) => setStandard(e.target.value)}
+                    disabled={inputsDisabled}
+                    placeholder={t('batteryStandardPlaceholder')}
+                  />
+                </Form.Item>
+              </Col>
             </Row>
           </Card>
         </Col>
@@ -802,6 +901,11 @@ export default function BatteryPage() {
                       pagination={false}
                       locale={{ emptyText: t('batteryNoResults') }}
                       scroll={{ x: true, y: 240 }}
+                      rowClassName={(record) => {
+                        const ocvBad = isOutOfTolerance(record.ocv, ocvMean, OCV_TOLERANCE);
+                        const ccvBad = isOutOfTolerance(record.ccv, ccvMean, CCV_TOLERANCE);
+                        return (ocvBad || ccvBad) ? 'battery-row-bad' : '';
+                      }}
                       components={{
                         body: {
                           row: (rowProps) => {

@@ -385,4 +385,10 @@ export default {
   batteryExcelReport: 'Báo cáo Excel',
   batteryCurrentTemplate: 'Mẫu hiện tại',
   batteryNoTemplate: 'Chưa có mẫu',
+  batteryType: 'Loại pin',
+  batteryProductLine: 'Dòng sản phẩm',
+  batteryStandard: 'Tiêu chuẩn',
+  batteryStandardPlaceholder: 'Nhập tiêu chuẩn...',
+  batteryOutOfSpec: 'lệch chuẩn',
+  batteryRetestRequired: 'Yêu cầu đo lại',
 };
