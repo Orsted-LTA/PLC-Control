@@ -479,17 +479,27 @@ export default function BatteryPage() {
       axisLine: { lineStyle: { color: '#444' } },
       splitLine: { lineStyle: { color: '#2a2a2a' } },
     },
-    yAxis: {
-      type: 'value',
-      name: 'V',
-      nameLocation: 'end',
-      axisLabel: { color: '#aaa' },
-      axisLine: { lineStyle: { color: '#444' } },
-      splitLine: { lineStyle: { color: '#2a2a2a' } },
-      scale: true,
-      min: (value) => Math.max(0, Math.floor((value.min - 0.1) * 10) / 10),
-      max: (value) => Math.ceil((value.max + 0.05) * 10) / 10,
-    },
+    yAxis: (() => {
+      const allVoltages = [...chartDataOCV, ...chartDataCCV].map(p => p[1]).filter(v => v != null);
+      if (allVoltages.length === 0) return {
+        type: 'value', name: 'V', nameLocation: 'end',
+        axisLabel: { color: '#aaa' }, axisLine: { lineStyle: { color: '#444' } },
+        splitLine: { lineStyle: { color: '#2a2a2a' } }, scale: true,
+      };
+      const minV = allVoltages.reduce((a, b) => a < b ? a : b);
+      const maxV = allVoltages.reduce((a, b) => a > b ? a : b);
+      return {
+        type: 'value',
+        name: 'V',
+        nameLocation: 'end',
+        axisLabel: { color: '#aaa' },
+        axisLine: { lineStyle: { color: '#444' } },
+        splitLine: { lineStyle: { color: '#2a2a2a' } },
+        scale: true,
+        min: Math.max(0, Math.floor((minV - 0.1) * 10) / 10),
+        max: Math.ceil((maxV + 0.05) * 10) / 10,
+      };
+    })(),
     dataZoom: autoScroll
       ? [{ type: 'inside', filterMode: 'none' }]
       : [{ type: 'inside' }, { type: 'slider', height: 20, bottom: 4 }],
@@ -511,7 +521,9 @@ export default function BatteryPage() {
       {
         name: 'CCV',
         type: 'line',
-        data: chartDataCCV,
+        data: chartDataOCV.length > 0 && chartDataCCV.length > 0
+          ? [chartDataOCV[chartDataOCV.length - 1], ...chartDataCCV]
+          : chartDataCCV,
         symbol: 'none',
         lineStyle: { color: '#0091ea', width: 2 },
         areaStyle: { color: 'rgba(0,145,234,0.08)' },
@@ -1126,6 +1138,8 @@ export default function BatteryPage() {
             localStorage.removeItem('battery_session');
             setRecords([]);
             setChartData([]);
+            setChartDataOCV([]);
+            setChartDataCCV([]);
             setReadingsByBattery({});
             setOrderId('');
             setTestDate(dayjs());

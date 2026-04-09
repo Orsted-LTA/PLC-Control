@@ -444,6 +444,7 @@ def connect(req: ConnectRequest):
             session["simulation"] = True
             session["port"] = "SIM"
             session["baud_rate"] = req.baud_rate
+            session["running"] = False
         return {"ok": True, "message": "Simulation mode active"}
 
     if not PYVISA_AVAILABLE:
@@ -478,6 +479,7 @@ def connect(req: ConnectRequest):
             session["simulation"] = False
             session["port"] = req.port
             session["baud_rate"] = req.baud_rate
+            session["running"] = False
 
         return {"ok": True, "message": idn}
     except Exception as exc:
