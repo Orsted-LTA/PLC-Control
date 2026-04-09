@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Card, Form, Select, Input, InputNumber, DatePicker, Button, Table, Tabs,
   Badge, notification, Tooltip, Space, Row, Col, Divider, Tag, Checkbox,
-  Typography, Upload, Collapse, Popover, Modal,
+  Typography, Upload, Collapse, Modal,
 } from 'antd';
 import {
   ReloadOutlined, DownloadOutlined, DeleteOutlined, PlayCircleOutlined,
@@ -38,11 +38,17 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
 
 function parseStandard(str) {
-  if (!str) return null;
-  // Accept formats: "1.500±0.005" or "1.500+/-0.005" or "1.500 ± 0.005"
-  const match = str.replace(/\+\/-/g, '±').replace(/\s/g, '').match(/^([0-9.]+)±([0-9.]+)$/);
-  if (!match) return null;
-  return { center: parseFloat(match[1]), tolerance: parseFloat(match[2]) };
+  if (!str || !str.trim()) return null;
+  const cleaned = str.replace(/\+\/-/g, '±').replace(/\s/g, '');
+  const matchFull = cleaned.match(/^([0-9.]+)±([0-9.]+)$/);
+  if (matchFull) {
+    return { center: parseFloat(matchFull[1]), tolerance: parseFloat(matchFull[2]) };
+  }
+  const matchSimple = cleaned.match(/^([0-9.]+)$/);
+  if (matchSimple) {
+    return { center: parseFloat(matchSimple[1]), tolerance: 0 };
+  }
+  return null;
 }
 
 function getInitialSession() {
@@ -51,38 +57,6 @@ function getInitialSession() {
   } catch {
     return {};
   }
-}
-
-function RowWithPopover({ record, readingsByBattery, buildMiniChartOption, ...props }) {
-  const readings = record ? readingsByBattery[record.id] : null;
-  const hasReadings = readings && readings.length > 0;
-
-  if (!hasReadings) return <tr {...props} />;
-
-  const popoverContent = (
-    <div style={{ background: '#1a1a1a', borderRadius: 6, padding: 4 }}>
-      <ReactECharts
-        option={buildMiniChartOption(record.id)}
-        style={{ height: 450, width: 900 }}
-        theme="dark"
-      />
-      <div style={{ color: '#888', fontSize: 11, textAlign: 'center', marginTop: 2 }}>
-        {readings.length} readings — Pin #{record.id}
-      </div>
-    </div>
-  );
-
-  return (
-    <Popover
-      content={popoverContent}
-      placement="left"
-      mouseEnterDelay={0.3}
-      overlayStyle={{ padding: 0 }}
-      overlayInnerStyle={{ background: '#1a1a1a', padding: 0, border: '1px solid #333' }}
-    >
-      <tr {...props} style={{ ...props.style, cursor: 'pointer' }} />
-    </Popover>
-  );
 }
 
 export default function BatteryPage() {
@@ -124,9 +98,6 @@ export default function BatteryPage() {
 
   // Results
   const [records, setRecords] = useState(() => getInitialSession().records || []);
-
-  // Readings grouped by battery id for tooltip display
-  const [readingsByBattery, setReadingsByBattery] = useState({});
 
   // History tab — persistent across reloads via localStorage
   const [historyRecords, setHistoryRecords] = useState(() => {
@@ -221,13 +192,6 @@ export default function BatteryPage() {
       case 'reading':
         if (msg.elapsed !== undefined && msg.voltage !== undefined) {
           setChartData((prev) => [...prev, [msg.elapsed, msg.voltage]]);
-          if (msg.battery_id !== undefined) {
-            setReadingsByBattery((prev) => {
-              const id = msg.battery_id;
-              const list = prev[id] || [];
-              return { ...prev, [id]: [...list, { t: msg.elapsed, v: msg.voltage, phase: msg.phase }] };
-            });
-          }
         }
         break;
 
@@ -268,7 +232,6 @@ export default function BatteryPage() {
       case 'session_cleared':
         setChartData([]);
         setRecords([]);
-        setReadingsByBattery({});
         notification.success({ message: t('batterySessionCleared') });
         break;
 
@@ -497,24 +460,6 @@ export default function BatteryPage() {
     ],
   };
 
-  const buildMiniChartOption = useCallback((batteryId) => {
-    const readings = readingsByBattery[batteryId] || [];
-    const ocvData = readings.filter(r => r.phase === 'ocv').map(r => [r.t, r.v]);
-    const ccvData = readings.filter(r => r.phase === 'ccv').map(r => [r.t, r.v]);
-    return {
-      animation: false,
-      backgroundColor: 'transparent',
-      grid: { top: 16, right: 12, bottom: 28, left: 44 },
-      tooltip: { trigger: 'axis', formatter: (params) => params.map(p => `${p.marker}${p.seriesName}: ${p.value[1]?.toFixed(3)}V @ ${p.value[0]}s`).join('<br/>') },
-      xAxis: { type: 'value', name: 's', nameLocation: 'end', axisLabel: { color: '#aaa', fontSize: 10 }, axisLine: { lineStyle: { color: '#444' } }, splitLine: { lineStyle: { color: '#2a2a2a' } } },
-      yAxis: { type: 'value', name: 'V', nameLocation: 'end', axisLabel: { color: '#aaa', fontSize: 10 }, axisLine: { lineStyle: { color: '#444' } }, splitLine: { lineStyle: { color: '#2a2a2a' } }, scale: true, min: (value) => Math.max(0, Math.floor((value.min - 0.05) * 100) / 100), max: (value) => Math.ceil((value.max + 0.02) * 100) / 100 },
-      series: [
-        { name: 'OCV', type: 'line', data: ocvData, symbol: 'none', lineStyle: { color: '#ffee58', width: 1.5 } },
-        { name: 'CCV', type: 'line', data: ccvData, symbol: 'none', lineStyle: { color: '#0091ea', width: 1.5 } },
-      ],
-    };
-  }, [readingsByBattery]);
-
   // Results table columns
   const columns = [
     {
@@ -550,11 +495,6 @@ export default function BatteryPage() {
       ),
     },
   ];
-
-  const recordsMap = React.useMemo(
-    () => Object.fromEntries(records.map(r => [String(r.id), r])),
-    [records],
-  );
 
   const ocvSpec = React.useMemo(() => parseStandard(ocvStandard), [ocvStandard]);
   const ccvSpec = React.useMemo(() => parseStandard(ccvStandard), [ccvStandard]);
@@ -608,7 +548,7 @@ export default function BatteryPage() {
   }, []);
 
   const inputsDisabled = !connected;
-  const canStart = connected && !running && orderId.trim() !== '' && testDate !== null && ocvStandard.trim() !== '' && ccvStandard.trim() !== '';
+  const canStart = connected && !running && orderId.trim() !== '' && testDate !== null;
 
   return (
     <div>
@@ -954,14 +894,6 @@ export default function BatteryPage() {
                         const ccvBad = ccvSpec && record.ccv != null && Math.abs(record.ccv - ccvSpec.center) > ccvSpec.tolerance;
                         return (ocvBad || ccvBad) ? 'battery-row-bad' : '';
                       }}
-                      components={{
-                        body: {
-                          row: (rowProps) => {
-                            const record = recordsMap[String(rowProps['data-row-key'])];
-                            return <RowWithPopover record={record} readingsByBattery={readingsByBattery} buildMiniChartOption={buildMiniChartOption} {...rowProps} />;
-                          },
-                        },
-                      }}
                     />
                   ),
                 },
@@ -976,8 +908,17 @@ export default function BatteryPage() {
                           icon={<DeleteOutlined />}
                           danger
                           onClick={() => {
-                            setHistoryRecords([]);
-                            localStorage.removeItem('battery_history');
+                            Modal.confirm({
+                              title: t('batteryClearHistoryConfirmTitle'),
+                              content: t('batteryClearHistoryConfirmContent'),
+                              okText: t('confirm'),
+                              cancelText: t('cancel'),
+                              okButtonProps: { danger: true },
+                              onOk: () => {
+                                setHistoryRecords([]);
+                                localStorage.removeItem('battery_history');
+                              },
+                            });
                           }}
                         >
                           {t('batteryClearHistory')}
@@ -1041,7 +982,16 @@ export default function BatteryPage() {
 
         <Button
           icon={<DeleteOutlined />}
-          onClick={handleClearSession}
+          onClick={() => {
+            Modal.confirm({
+              title: t('batteryClearSessionConfirmTitle'),
+              content: t('batteryClearSessionConfirmContent'),
+              okText: t('confirm'),
+              cancelText: t('cancel'),
+              okButtonProps: { danger: true },
+              onOk: handleClearSession,
+            });
+          }}
           disabled={!connected || records.length === 0}
         >
           {t('batteryClearSession')}
@@ -1052,12 +1002,12 @@ export default function BatteryPage() {
         title={t('batteryResumeTitle')}
         closable={false}
         maskClosable={false}
+        keyboard={false}
         footer={[
-          <Button key="new" onClick={() => {
+          <Button key="new" danger onClick={() => {
             localStorage.removeItem('battery_session');
             setRecords([]);
             setChartData([]);
-            setReadingsByBattery({});
             setOrderId('');
             setTestDate(dayjs());
             setBatteryType('LR6');
