@@ -65,10 +65,10 @@ function RowWithPopover({ record, readingsByBattery, buildMiniChartOption, ...ro
     return <tr {...rowProps} />;
   }
   const popoverContent = (
-    <div style={{ width: 320, background: '#1a1a1a', borderRadius: 6, padding: 4 }}>
+    <div style={{ width: 900, background: '#1a1a1a', borderRadius: 6, padding: 4 }}>
       <ReactECharts
         option={buildMiniChartOption(record.id)}
-        style={{ height: 180 }}
+        style={{ height: 450, width: 900 }}
         notMerge
         theme="dark"
       />
@@ -78,6 +78,7 @@ function RowWithPopover({ record, readingsByBattery, buildMiniChartOption, ...ro
     <Popover
       content={popoverContent}
       overlayInnerStyle={{ background: '#1a1a1a', padding: 0 }}
+      overlayStyle={{ maxWidth: 940 }}
       placement="left"
       mouseEnterDelay={0.3}
     >
@@ -112,8 +113,8 @@ export default function BatteryPage() {
   const [kCoeff, setKCoeff] = useState(1.0);
   const [batteryType, setBatteryType] = useState(() => getInitialSession().batteryType || 'LR6');
   const [productLine, setProductLine] = useState(() => getInitialSession().productLine || 'UD+');
-  const [ocvStandard, setOcvStandard] = useState(() => getInitialSession().ocvStandard || '');
-  const [ccvStandard, setCcvStandard] = useState(() => getInitialSession().ccvStandard || '');
+  const [ocvStandard, setOcvStandard] = useState(() => getInitialSession().ocvStandard || '1.500\u00b10.003');
+  const [ccvStandard, setCcvStandard] = useState(() => getInitialSession().ccvStandard || '0.470\u00b10.010');
 
   // Display
   const [statusText, setStatusText] = useState('Waiting...');
@@ -609,12 +610,10 @@ export default function BatteryPage() {
   }, [records, chartData, orderId, testDate, batteryType, productLine, ocvStandard, ccvStandard]);
 
   useEffect(() => {
-    if (sessionStorage.getItem('battery_resume_checked')) return;
-    sessionStorage.setItem('battery_resume_checked', '1');
     try {
-      const saved = JSON.parse(localStorage.getItem('battery_session') || '{}');
-      if (saved.records && saved.records.length > 0) {
-        setSavedSessionInfo(saved);
+      const parsed = JSON.parse(localStorage.getItem('battery_session') || '{}');
+      if (parsed?.records?.length > 0) {
+        setSavedSessionInfo(parsed);
         setResumeModalVisible(true);
       }
     } catch {}
