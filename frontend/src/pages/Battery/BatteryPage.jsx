@@ -113,8 +113,8 @@ export default function BatteryPage() {
   const [kCoeff, setKCoeff] = useState(1.0);
   const [batteryType, setBatteryType] = useState(() => getInitialSession().batteryType || 'LR6');
   const [productLine, setProductLine] = useState(() => getInitialSession().productLine || 'UD+');
-  const [ocvStandard, setOcvStandard] = useState(() => getInitialSession().ocvStandard || '1.500\u00b10.003');
-  const [ccvStandard, setCcvStandard] = useState(() => getInitialSession().ccvStandard || '0.470\u00b10.010');
+  const [ocvStandard, setOcvStandard] = useState(() => getInitialSession().ocvStandard || '');
+  const [ccvStandard, setCcvStandard] = useState(() => getInitialSession().ccvStandard || '');
 
   // Display
   const [statusText, setStatusText] = useState('Waiting...');
@@ -620,7 +620,7 @@ export default function BatteryPage() {
   }, []);
 
   const inputsDisabled = !connected;
-  const canStart = connected && !running && orderId.trim() !== '' && testDate !== null;
+  const canStart = connected && !running && orderId.trim() !== '' && testDate !== null && ocvStandard.trim() !== '' && ccvStandard.trim() !== '';
 
   return (
     <div>
@@ -820,7 +820,7 @@ export default function BatteryPage() {
                 </Form.Item>
               </Col>
               <Col xs={12} sm={8}>
-                <Form.Item label={t('batteryOcvStandard')} style={{ marginBottom: 0 }}>
+                <Form.Item label={t('batteryOcvStandard')} style={{ marginBottom: 0 }} required>
                   <Input
                     value={ocvStandard}
                     onChange={(e) => setOcvStandard(e.target.value)}
@@ -830,7 +830,7 @@ export default function BatteryPage() {
                 </Form.Item>
               </Col>
               <Col xs={12} sm={8}>
-                <Form.Item label={t('batteryCcvStandard')} style={{ marginBottom: 0 }}>
+                <Form.Item label={t('batteryCcvStandard')} style={{ marginBottom: 0 }} required>
                   <Input
                     value={ccvStandard}
                     onChange={(e) => setCcvStandard(e.target.value)}

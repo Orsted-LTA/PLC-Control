@@ -391,7 +391,7 @@ export default {
   batteryCcvStandard: 'CCV Standard',
   batteryOutOfSpec: 'out of spec',
   batteryRetestRequired: 'Retest required',
-  batteryFillRequiredFields: 'Please enter Order ID',
+  batteryFillRequiredFields: 'Please fill in: Order ID, OCV Standard and CCV Standard',
   batteryClearSessionConfirmTitle: 'Clear Session?',
   batteryClearSessionConfirmContent: 'All test results in this session will be deleted. Are you sure?',
   batteryClearHistoryConfirmTitle: 'Clear History?',
