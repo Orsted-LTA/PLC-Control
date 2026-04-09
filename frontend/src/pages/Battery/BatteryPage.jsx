@@ -36,6 +36,8 @@ function getStatusColor(text) {
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
+const OCV_TOLERANCE = 0.003;
+const CCV_TOLERANCE = 0.010;
 
 function parseStandard(str) {
   if (!str || !str.trim()) return null;
@@ -113,8 +115,8 @@ export default function BatteryPage() {
   const [kCoeff, setKCoeff] = useState(1.0);
   const [batteryType, setBatteryType] = useState(() => getInitialSession().batteryType || 'LR6');
   const [productLine, setProductLine] = useState(() => getInitialSession().productLine || 'UD+');
-  const [ocvStandard, setOcvStandard] = useState(() => getInitialSession().ocvStandard || '');
-  const [ccvStandard, setCcvStandard] = useState(() => getInitialSession().ccvStandard || '');
+  const [ocvCenter, setOcvCenter] = useState(() => getInitialSession().ocvCenter ?? null);
+  const [ccvCenter, setCcvCenter] = useState(() => getInitialSession().ccvCenter ?? null);
 
   // Display
   const [statusText, setStatusText] = useState('Waiting...');
@@ -165,9 +167,9 @@ export default function BatteryPage() {
     coeff: parseFloat(kCoeff),
     battery_type: batteryType,
     product_line: productLine,
-    ocv_standard: ocvStandard,
-    ccv_standard: ccvStandard,
-  }), [orderId, testDate, resistance, ocvTime, loadTime, kCoeff, batteryType, productLine, ocvStandard, ccvStandard]);
+    ocv_standard: ocvCenter,
+    ccv_standard: ccvCenter,
+  }), [orderId, testDate, resistance, ocvTime, loadTime, kCoeff, batteryType, productLine, ocvCenter, ccvCenter]);
 
   const sendMsg = useCallback((msg) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -536,8 +538,14 @@ export default function BatteryPage() {
     },
   ];
 
-  const ocvSpec = React.useMemo(() => parseStandard(ocvStandard), [ocvStandard]);
-  const ccvSpec = React.useMemo(() => parseStandard(ccvStandard), [ccvStandard]);
+  const ocvSpec = React.useMemo(() => {
+    const v = parseFloat(ocvCenter);
+    return isNaN(v) ? null : { center: v, tolerance: OCV_TOLERANCE };
+  }, [ocvCenter]);
+  const ccvSpec = React.useMemo(() => {
+    const v = parseFloat(ccvCenter);
+    return isNaN(v) ? null : { center: v, tolerance: CCV_TOLERANCE };
+  }, [ccvCenter]);
 
   const recordsMap = React.useMemo(() => {
     const map = {};
@@ -602,12 +610,12 @@ export default function BatteryPage() {
         testDate: testDate ? testDate.format('YYYY-MM') : null,
         batteryType,
         productLine,
-        ocvStandard,
-        ccvStandard,
+        ocvCenter,
+        ccvCenter,
       };
       localStorage.setItem('battery_session', JSON.stringify(sessionData));
     } catch {}
-  }, [records, chartData, orderId, testDate, batteryType, productLine, ocvStandard, ccvStandard]);
+  }, [records, chartData, orderId, testDate, batteryType, productLine, ocvCenter, ccvCenter]);
 
   useEffect(() => {
     try {
@@ -620,7 +628,7 @@ export default function BatteryPage() {
   }, []);
 
   const inputsDisabled = !connected;
-  const canStart = connected && !running && orderId.trim() !== '' && testDate !== null && ocvStandard.trim() !== '' && ccvStandard.trim() !== '';
+  const canStart = connected && !running && orderId.trim() !== '' && testDate !== null && ocvCenter != null && ccvCenter != null;
 
   return (
     <div>
@@ -821,21 +829,25 @@ export default function BatteryPage() {
               </Col>
               <Col xs={12} sm={8}>
                 <Form.Item label={t('batteryOcvStandard')} style={{ marginBottom: 0 }} required>
-                  <Input
-                    value={ocvStandard}
-                    onChange={(e) => setOcvStandard(e.target.value)}
+                  <InputNumber
+                    value={ocvCenter}
+                    onChange={setOcvCenter}
                     disabled={inputsDisabled}
-                    placeholder="e.g. 1.500±0.005"
+                    min={0}
+                    step={0.001}
+                    style={{ width: '100%' }}
                   />
                 </Form.Item>
               </Col>
               <Col xs={12} sm={8}>
                 <Form.Item label={t('batteryCcvStandard')} style={{ marginBottom: 0 }} required>
-                  <Input
-                    value={ccvStandard}
-                    onChange={(e) => setCcvStandard(e.target.value)}
+                  <InputNumber
+                    value={ccvCenter}
+                    onChange={setCcvCenter}
                     disabled={inputsDisabled}
-                    placeholder="e.g. 1.200±0.001"
+                    min={0}
+                    step={0.001}
+                    style={{ width: '100%' }}
                   />
                 </Form.Item>
               </Col>
@@ -1093,8 +1105,8 @@ export default function BatteryPage() {
             setTestDate(dayjs());
             setBatteryType('LR6');
             setProductLine('UD+');
-            setOcvStandard('');
-            setCcvStandard('');
+            setOcvCenter(null);
+            setCcvCenter(null);
             setResumeModalVisible(false);
           }}>{t('batteryNewSession')}</Button>,
           <Button key="continue" type="primary" onClick={() => {
