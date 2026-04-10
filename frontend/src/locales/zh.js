@@ -400,4 +400,12 @@ export default {
   batteryResumeDesc: '您有一个未完成的测试会话，继续测试还是创建新会话？',
   batteryContinueSession: '继续测试',
   batteryNewSession: '新建会话',
+  batteryArchiveUpload: '上传存档文件',
+  batteryArchiveUploadHint: '拖拽或点击选择 .xlsx 存档文件',
+  batteryArchiveUploaded: '存档已保存',
+  batteryArchiveUploadFailed: '存档上传失败',
+  batteryArchiveNotFound: '未找到存档，请先上传。',
+  batteryDownloadArchiveReport: '下载存档',
+  batteryCurrentArchive: '当前存档',
+  batteryNoArchive: '尚未上传存档',
 };
