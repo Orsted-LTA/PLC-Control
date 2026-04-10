@@ -18,5 +18,15 @@ export const downloadReport = () =>
 export const uploadTemplate = (formData) =>
   api.post('/upload-template', formData);
 
+export const getTemplateInfo = () => api.get('/template-info');
+
 export const downloadReportFromTemplate = (records) =>
   api.post('/download-report', { records }, { responseType: 'blob' });
+
+export const uploadArchive = (formData) =>
+  api.post('/upload-archive', formData);
+
+export const getArchiveInfo = () => api.get('/archive-info');
+
+export const downloadArchiveReport = (records) =>
+  api.post('/download-archive-report', { records }, { responseType: 'blob' });

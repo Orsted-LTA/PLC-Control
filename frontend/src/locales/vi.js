@@ -400,4 +400,12 @@ export default {
   batteryResumeDesc: 'Bạn có một phiên đo chưa hoàn thành. Tiếp tục đo hay tạo phiên mới?',
   batteryContinueSession: 'Tiếp tục đo',
   batteryNewSession: 'Tạo phiên mới',
+  batteryArchiveUpload: 'Tải lên bản lưu trữ',
+  batteryArchiveUploadHint: 'Kéo thả hoặc click để chọn file .xlsx',
+  batteryArchiveUploaded: 'Đã lưu bản lưu trữ',
+  batteryArchiveUploadFailed: 'Tải lên thất bại',
+  batteryArchiveNotFound: 'Chưa có bản lưu trữ. Vui lòng tải lên trước.',
+  batteryDownloadArchiveReport: 'Tải bản lưu trữ',
+  batteryCurrentArchive: 'Bản lưu trữ hiện tại',
+  batteryNoArchive: 'Chưa có bản lưu trữ',
 };

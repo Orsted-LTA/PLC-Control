@@ -32,6 +32,23 @@ const upload = multer({
   },
 });
 
+const archiveStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, TEMPLATES_DIR),
+  filename: (_req, _file, cb) => cb(null, 'battery_archive.xlsx'),
+});
+
+const uploadArchive = multer({
+  storage: archiveStorage,
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.xlsx') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .xlsx files are accepted'));
+    }
+  },
+});
+
 // All battery routes require authentication
 router.use(authenticateToken);
 
@@ -98,6 +115,34 @@ router.post('/upload-template', (req, res) => {
     logger.info('Battery template uploaded', { filename: req.file.filename });
     res.json({ ok: true, message: 'Template saved' });
   });
+});
+
+// GET /api/battery/template-info — check if template file exists
+router.get('/template-info', (req, res) => {
+  const templatePath = path.join(TEMPLATES_DIR, 'battery_template.xlsx');
+  const exists = fs.existsSync(templatePath);
+  res.json({ exists, name: exists ? 'battery_template.xlsx' : null });
+});
+
+// POST /api/battery/upload-archive — save uploaded .xlsx archive
+router.post('/upload-archive', (req, res) => {
+  uploadArchive.single('archive')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded or invalid file type' });
+    }
+    logger.info('Battery archive uploaded', { filename: req.file.filename });
+    res.json({ ok: true, message: 'Archive saved' });
+  });
+});
+
+// GET /api/battery/archive-info — check if archive file exists
+router.get('/archive-info', (req, res) => {
+  const archivePath = path.join(TEMPLATES_DIR, 'battery_archive.xlsx');
+  const exists = fs.existsSync(archivePath);
+  res.json({ exists, name: exists ? 'battery_archive.xlsx' : null });
 });
 
 // POST /api/battery/download-report — inject test data into template and return xlsx
@@ -171,6 +216,78 @@ router.post('/download-report', async (req, res) => {
   } catch (e) {
     logger.error('Battery download-report error', { error: e.message });
     res.status(500).json({ error: 'Failed to generate report', detail: e.message });
+  }
+});
+
+// POST /api/battery/download-archive-report — inject test data into archive and return xlsx
+router.post('/download-archive-report', async (req, res) => {
+  const archivePath = path.join(TEMPLATES_DIR, 'battery_archive.xlsx');
+
+  if (!fs.existsSync(archivePath)) {
+    return res.status(404).json({ error: 'Archive not found. Please upload battery_archive.xlsx first.' });
+  }
+
+  const { records } = req.body;
+  if (!Array.isArray(records)) {
+    return res.status(400).json({ error: 'records must be an array' });
+  }
+
+  try {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(archivePath);
+
+    const dataMap = {};
+    for (const rec of records) {
+      dataMap[rec.id] = rec;
+    }
+
+    const TAG_PATTERN = '(OCV|CCV|Time)_(\\d+)';
+    const fullTagRegex = new RegExp(`^\\{\\{${TAG_PATTERN}\\}\\}$`, 'i');
+    const inlineTagRegex = new RegExp(`\\{\\{${TAG_PATTERN}\\}\\}`, 'gi');
+
+    const getTagValue = (field, rec) => {
+      const f = field.toLowerCase();
+      if (f === 'ocv') return parseFloat(rec.ocv);
+      if (f === 'ccv') return parseFloat(rec.ccv);
+      if (f === 'time') return String(rec.time);
+      return '';
+    };
+
+    workbook.eachSheet((sheet) => {
+      sheet.eachRow((row) => {
+        row.eachCell({ includeEmpty: false }, (cell) => {
+          const val = cell.value;
+          if (typeof val !== 'string') return;
+
+          const fullMatch = val.match(fullTagRegex);
+          if (fullMatch) {
+            const field = fullMatch[1];
+            const id = parseInt(fullMatch[2], 10);
+            const rec = dataMap[id];
+            cell.value = rec ? getTagValue(field, rec) : '';
+            return;
+          }
+
+          const replaced = val.replace(inlineTagRegex, (_match, field, idStr) => {
+            const id = parseInt(idStr, 10);
+            const rec = dataMap[id];
+            if (!rec) return '';
+            const v = getTagValue(field, rec);
+            return v !== '' ? v : '';
+          });
+
+          if (replaced !== val) cell.value = replaced;
+        });
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="battery_archive_report.xlsx"');
+    res.send(buffer);
+  } catch (e) {
+    logger.error('Battery download-archive-report error', { error: e.message });
+    res.status(500).json({ error: 'Failed to generate archive report', detail: e.message });
   }
 });
 

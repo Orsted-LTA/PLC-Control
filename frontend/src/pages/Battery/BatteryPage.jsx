@@ -11,7 +11,7 @@ import {
 import ReactECharts from 'echarts-for-react';
 import dayjs from 'dayjs';
 import { useLang } from '../../contexts/LangContext';
-import { downloadReport, uploadTemplate, downloadReportFromTemplate } from '../../api/battery';
+import { uploadTemplate, getTemplateInfo, downloadReportFromTemplate, uploadArchive, getArchiveInfo, downloadArchiveReport } from '../../api/battery';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -126,6 +126,7 @@ export default function BatteryPage() {
   const [chartData, setChartData] = useState(() => getInitialSession().chartData || []);
   const [chartDataOCV, setChartDataOCV] = useState(() => getInitialSession().chartDataOCV || []);
   const [chartDataCCV, setChartDataCCV] = useState(() => getInitialSession().chartDataCCV || []);
+  const [chartSeriesByBattery, setChartSeriesByBattery] = useState({});
   const [autoScroll, setAutoScroll] = useState(true);
 
   // Results
@@ -149,8 +150,12 @@ export default function BatteryPage() {
   const [savedSessionInfo, setSavedSessionInfo] = useState(null);
 
   // Excel report template
-  const [templateName, setTemplateName] = useState(null);
+  const [templateName, setTemplateName] = useState(() => localStorage.getItem('battery_template_name') || null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+
+  // Archive
+  const [archiveName, setArchiveName] = useState(() => localStorage.getItem('battery_archive_name') || null);
+  const [downloadingArchive, setDownloadingArchive] = useState(false);
 
   // WebSocket
   const wsRef = useRef(null);
@@ -234,10 +239,21 @@ export default function BatteryPage() {
             setChartDataCCV((prev) => [...prev, [msg.elapsed, msg.voltage]]);
           }
           if (msg.battery_id !== undefined) {
+            const bid = msg.battery_id;
             setReadingsByBattery((prev) => {
-              const id = msg.battery_id;
+              const id = bid;
               const list = prev[id] || [];
               return { ...prev, [id]: [...list, { t: msg.elapsed, v: msg.voltage, phase: msg.phase }] };
+            });
+            setChartSeriesByBattery((prev) => {
+              const entry = prev[bid] || { ocv: [], ccv: [] };
+              const point = [msg.elapsed, msg.voltage];
+              if (msg.phase === 'ocv') {
+                return { ...prev, [bid]: { ...entry, ocv: [...entry.ocv, point] } };
+              } else if (msg.phase === 'ccv') {
+                return { ...prev, [bid]: { ...entry, ccv: [...entry.ccv, point] } };
+              }
+              return prev;
             });
           }
         }
@@ -281,6 +297,7 @@ export default function BatteryPage() {
         setChartData([]);
         setChartDataOCV([]);
         setChartDataCCV([]);
+        setChartSeriesByBattery({});
         setRecords([]);
         setReadingsByBattery({});
         notification.success({ message: t('batterySessionCleared') });
@@ -383,38 +400,12 @@ export default function BatteryPage() {
     sendMsg({ action: 'start', payload: { ...buildParams(), retest_id: record.id } });
   };
 
-  // Download Excel report
-  const handleDownloadReport = async () => {
-    notification.info({ message: t('batteryDownloading') });
-    try {
-      const response = await downloadReport();
-      const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'battery_report.xlsx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      notification.success({ message: t('batteryDownloadSuccess') });
-    } catch (e) {
-      const status = e.response?.status;
-      if (status === 404) {
-        notification.warning({ message: t('batteryNoReport') });
-      } else {
-        notification.error({ message: t('batteryDownloadFailed'), description: e.message });
-      }
-    }
-  };
-
   // Clear session
   const handleClearSession = () => {
     sendMsg({ action: 'clear_session' });
     localStorage.removeItem('battery_session');
     setReadingsByBattery({});
+    setChartSeriesByBattery({});
   };
 
   // Template upload handler
@@ -424,10 +415,27 @@ export default function BatteryPage() {
     try {
       await uploadTemplate(formData);
       setTemplateName(file.name);
+      localStorage.setItem('battery_template_name', file.name);
       notification.success({ message: t('batteryTemplateUploaded') });
       onSuccess();
     } catch (e) {
       notification.error({ message: t('batteryTemplateUploadFailed'), description: e.message });
+      onError(e);
+    }
+  };
+
+  // Archive upload handler
+  const handleArchiveUpload = async ({ file, onSuccess, onError }) => {
+    const formData = new FormData();
+    formData.append('archive', file);
+    try {
+      await uploadArchive(formData);
+      setArchiveName(file.name);
+      localStorage.setItem('battery_archive_name', file.name);
+      notification.success({ message: t('batteryArchiveUploaded') });
+      onSuccess();
+    } catch (e) {
+      notification.error({ message: t('batteryArchiveUploadFailed'), description: e.message });
       onError(e);
     }
   };
@@ -470,13 +478,124 @@ export default function BatteryPage() {
     }
   };
 
-  // ECharts option
+  // Download archive report
+  const handleDownloadArchiveReport = async () => {
+    setDownloadingArchive(true);
+    try {
+      const response = await downloadArchiveReport(records);
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const date = testDate ? testDate.format('YYYY-MM') : dayjs().format('YYYY-MM');
+      link.download = `battery_archive_${orderId}_${date}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      notification.success({ message: t('batteryDownloadSuccess') });
+    } catch (e) {
+      const status = e.response?.status;
+      if (status === 404) {
+        notification.warning({ message: t('batteryArchiveNotFound') });
+      } else {
+        let errMsg = e.message;
+        if (e.response?.data instanceof Blob) {
+          try {
+            const text = await e.response.data.text();
+            const parsed = JSON.parse(text);
+            errMsg = parsed.error || parsed.detail || errMsg;
+          } catch (_parseErr) { /* blob is not JSON, keep original message */ }
+        }
+        notification.error({ message: t('batteryDownloadFailed'), description: errMsg });
+      }
+    } finally {
+      setDownloadingArchive(false);
+    }
+  };
+
+  // ECharts option — one series per battery (OCV + CCV connected)
+  const allBatteryIds = Object.keys(chartSeriesByBattery).map(Number).sort((a, b) => a - b);
+  const chartSeries = [];
+  allBatteryIds.forEach((bid, idx) => {
+    const { ocv = [], ccv = [] } = chartSeriesByBattery[bid];
+    const isFirst = idx === 0;
+    chartSeries.push({
+      name: 'OCV',
+      type: 'line',
+      data: ocv,
+      symbol: 'none',
+      lineStyle: { color: '#ffee58', width: 2 },
+      markArea: isFirst && ocv.length > 0 && ocvTime > 0 ? {
+        silent: true,
+        data: [[
+          { name: 'OCV', xAxis: 0, itemStyle: { color: 'rgba(255,238,88,0.08)' } },
+          { xAxis: ocvTime },
+        ]],
+      } : undefined,
+    });
+    const ccvConnected = ocv.length > 0 && ccv.length > 0
+      ? [ocv[ocv.length - 1], ...ccv]
+      : ccv;
+    chartSeries.push({
+      name: 'CCV',
+      type: 'line',
+      data: ccvConnected,
+      symbol: 'none',
+      lineStyle: { color: '#0091ea', width: 2 },
+      areaStyle: isFirst ? { color: 'rgba(0,145,234,0.08)' } : undefined,
+      markArea: isFirst && ocv.length > 0 && ocvTime > 0 ? {
+        silent: true,
+        data: [[
+          { name: 'Load', xAxis: ocvTime, itemStyle: { color: 'rgba(0,229,255,0.06)' } },
+          { xAxis: ocvTime + loadTime },
+        ]],
+      } : undefined,
+    });
+  });
+  // Fallback to legacy flat data when chartSeriesByBattery is empty (e.g. resumed session without per-battery data)
+  if (allBatteryIds.length === 0 && (chartDataOCV.length > 0 || chartDataCCV.length > 0)) {
+    chartSeries.push({
+      name: 'OCV',
+      type: 'line',
+      data: chartDataOCV,
+      symbol: 'none',
+      lineStyle: { color: '#ffee58', width: 2 },
+      markArea: (chartDataOCV.length > 0 || chartDataCCV.length > 0) && ocvTime > 0 ? {
+        silent: true,
+        data: [[
+          { name: 'OCV', xAxis: 0, itemStyle: { color: 'rgba(255,238,88,0.08)' } },
+          { xAxis: ocvTime },
+        ]],
+      } : undefined,
+    });
+    chartSeries.push({
+      name: 'CCV',
+      type: 'line',
+      data: chartDataOCV.length > 0 && chartDataCCV.length > 0
+        ? [chartDataOCV[chartDataOCV.length - 1], ...chartDataCCV]
+        : chartDataCCV,
+      symbol: 'none',
+      lineStyle: { color: '#0091ea', width: 2 },
+      areaStyle: { color: 'rgba(0,145,234,0.08)' },
+      markArea: (chartDataOCV.length > 0 || chartDataCCV.length > 0) && ocvTime > 0 ? {
+        silent: true,
+        data: [[
+          { name: 'Load', xAxis: ocvTime, itemStyle: { color: 'rgba(0,229,255,0.06)' } },
+          { xAxis: ocvTime + loadTime },
+        ]],
+      } : undefined,
+    });
+  }
   const chartOption = {
     animation: false,
     backgroundColor: 'transparent',
     grid: { top: 36, right: 24, bottom: 40, left: 56 },
     legend: {
       top: 4,
+      data: ['OCV', 'CCV'],
       textStyle: { color: '#aaa', fontSize: 12 },
     },
     tooltip: { trigger: 'axis', formatter: (params) => params.map(p => `${p.marker}${p.seriesName}: ${p.value[1]?.toFixed(3)} V @ ${p.value[0]}s`).join('<br/>') },
@@ -500,39 +619,7 @@ export default function BatteryPage() {
     dataZoom: autoScroll
       ? [{ type: 'inside', filterMode: 'none' }]
       : [{ type: 'inside' }, { type: 'slider', height: 20, bottom: 4 }],
-    series: [
-      {
-        name: 'OCV',
-        type: 'line',
-        data: chartDataOCV,
-        symbol: 'none',
-        lineStyle: { color: '#ffee58', width: 2 },
-        markArea: (chartDataOCV.length > 0 || chartDataCCV.length > 0) && ocvTime > 0 ? {
-          silent: true,
-          data: [[
-            { name: 'OCV', xAxis: 0, itemStyle: { color: 'rgba(255,238,88,0.08)' } },
-            { xAxis: ocvTime },
-          ]],
-        } : undefined,
-      },
-      {
-        name: 'CCV',
-        type: 'line',
-        data: chartDataOCV.length > 0 && chartDataCCV.length > 0
-          ? [chartDataOCV[chartDataOCV.length - 1], ...chartDataCCV]
-          : chartDataCCV,
-        symbol: 'none',
-        lineStyle: { color: '#0091ea', width: 2 },
-        areaStyle: { color: 'rgba(0,145,234,0.08)' },
-        markArea: (chartDataOCV.length > 0 || chartDataCCV.length > 0) && ocvTime > 0 ? {
-          silent: true,
-          data: [[
-            { name: 'Load', xAxis: ocvTime, itemStyle: { color: 'rgba(0,229,255,0.06)' } },
-            { xAxis: ocvTime + loadTime },
-          ]],
-        } : undefined,
-      },
-    ],
+    series: chartSeries,
   };
 
   // Results table columns
@@ -663,6 +750,32 @@ export default function BatteryPage() {
         setResumeModalVisible(true);
       }
     } catch {}
+  }, []);
+
+  // Verify template file still exists on server on mount
+  useEffect(() => {
+    getTemplateInfo().then(res => {
+      if (res.data.exists) {
+        const saved = localStorage.getItem('battery_template_name');
+        if (saved) setTemplateName(saved);
+      } else {
+        localStorage.removeItem('battery_template_name');
+        setTemplateName(null);
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Verify archive file still exists on server on mount
+  useEffect(() => {
+    getArchiveInfo().then(res => {
+      if (res.data.exists) {
+        const saved = localStorage.getItem('battery_archive_name');
+        if (saved) setArchiveName(saved);
+      } else {
+        localStorage.removeItem('battery_archive_name');
+        setArchiveName(null);
+      }
+    }).catch(() => {});
   }, []);
 
   const inputsDisabled = !connected;
@@ -923,8 +1036,8 @@ export default function BatteryPage() {
           key: 'excel-report',
           label: t('batteryExcelReport'),
           children: (
-            <Row gutter={16}>
-              <Col xs={24} md={14}>
+            <Row gutter={[16, 8]}>
+              <Col xs={24} md={12}>
                 <Upload.Dragger
                   accept=".xlsx"
                   showUploadList={false}
@@ -946,15 +1059,46 @@ export default function BatteryPage() {
                   )}
                 </Upload.Dragger>
               </Col>
-              <Col xs={24} md={10} style={{ display: 'flex', alignItems: 'center' }}>
+              <Col xs={24} md={12}>
+                <Upload.Dragger
+                  accept=".xlsx"
+                  showUploadList={false}
+                  customRequest={handleArchiveUpload}
+                  style={{ padding: '8px 16px' }}
+                >
+                  <p className="ant-upload-drag-icon">
+                    <InboxOutlined />
+                  </p>
+                  <p className="ant-upload-text">{t('batteryArchiveUpload')}</p>
+                  <p className="ant-upload-hint">{t('batteryArchiveUploadHint')}</p>
+                  {archiveName && (
+                    <p style={{ color: '#52c41a', marginTop: 4 }}>
+                      {t('batteryCurrentArchive')}: <strong>{archiveName}</strong>
+                    </p>
+                  )}
+                  {!archiveName && (
+                    <p style={{ color: '#888', marginTop: 4 }}>{t('batteryNoArchive')}</p>
+                  )}
+                </Upload.Dragger>
+              </Col>
+              <Col xs={24} style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <Button
                   icon={<DownloadOutlined />}
                   onClick={handleDownloadTemplateReport}
                   disabled={records.length === 0}
                   loading={downloadingTemplate}
-                  block
+                  style={{ flex: 1 }}
                 >
                   {t('batteryDownloadTemplateReport')}
+                </Button>
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={handleDownloadArchiveReport}
+                  disabled={records.length === 0}
+                  loading={downloadingArchive}
+                  style={{ flex: 1 }}
+                >
+                  {t('batteryDownloadArchiveReport')}
                 </Button>
               </Col>
             </Row>
@@ -1103,14 +1247,6 @@ export default function BatteryPage() {
         <Divider type="vertical" />
 
         <Button
-          icon={<DownloadOutlined />}
-          onClick={handleDownloadReport}
-          disabled={records.length === 0}
-        >
-          {t('batteryDownloadReport')}
-        </Button>
-
-        <Button
           icon={<DeleteOutlined />}
           onClick={() => {
             Modal.confirm({
@@ -1140,6 +1276,7 @@ export default function BatteryPage() {
             setChartData([]);
             setChartDataOCV([]);
             setChartDataCCV([]);
+            setChartSeriesByBattery({});
             setReadingsByBattery({});
             setOrderId('');
             setTestDate(dayjs());

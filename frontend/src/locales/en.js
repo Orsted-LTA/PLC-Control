@@ -400,4 +400,12 @@ export default {
   batteryResumeDesc: 'You have an unfinished test session. Continue or start a new session?',
   batteryContinueSession: 'Continue Testing',
   batteryNewSession: 'New Session',
+  batteryArchiveUpload: 'Upload Archive File',
+  batteryArchiveUploadHint: 'Drag & drop or click to select .xlsx archive',
+  batteryArchiveUploaded: 'Archive saved successfully',
+  batteryArchiveUploadFailed: 'Archive upload failed',
+  batteryArchiveNotFound: 'No archive found. Please upload one first.',
+  batteryDownloadArchiveReport: 'Download Archive',
+  batteryCurrentArchive: 'Current Archive',
+  batteryNoArchive: 'No archive uploaded',
 };
