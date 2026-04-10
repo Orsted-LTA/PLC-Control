@@ -157,6 +157,7 @@ export default function BatteryPage() {
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef(null);
   const mountedRef = useRef(true);
+  const pendingNewSessionRef = useRef(false);
   const orderIdRef = useRef(orderId);
   useEffect(() => { orderIdRef.current = orderId; }, [orderId]);
 
@@ -307,6 +308,14 @@ export default function BatteryPage() {
       retryCountRef.current = 0;
       // Request available ports immediately
       ws.send(JSON.stringify({ action: 'get_ports' }));
+      if (pendingNewSessionRef.current) {
+        try {
+          ws.send(JSON.stringify({ action: 'clear_session' }));
+          pendingNewSessionRef.current = false;
+        } catch {
+          // flag remains true; will retry on next connection
+        }
+      }
     };
 
     ws.onmessage = handleWsMessage;
@@ -479,27 +488,15 @@ export default function BatteryPage() {
       axisLine: { lineStyle: { color: '#444' } },
       splitLine: { lineStyle: { color: '#2a2a2a' } },
     },
-    yAxis: (() => {
-      const allVoltages = [...chartDataOCV, ...chartDataCCV].map(p => p[1]).filter(v => v != null);
-      if (allVoltages.length === 0) return {
-        type: 'value', name: 'V', nameLocation: 'end',
-        axisLabel: { color: '#aaa' }, axisLine: { lineStyle: { color: '#444' } },
-        splitLine: { lineStyle: { color: '#2a2a2a' } }, scale: true,
-      };
-      const minV = allVoltages.reduce((a, b) => a < b ? a : b);
-      const maxV = allVoltages.reduce((a, b) => a > b ? a : b);
-      return {
-        type: 'value',
-        name: 'V',
-        nameLocation: 'end',
-        axisLabel: { color: '#aaa' },
-        axisLine: { lineStyle: { color: '#444' } },
-        splitLine: { lineStyle: { color: '#2a2a2a' } },
-        scale: true,
-        min: Math.max(0, Math.floor((minV - 0.1) * 10) / 10),
-        max: Math.ceil((maxV + 0.05) * 10) / 10,
-      };
-    })(),
+    yAxis: {
+      type: 'value',
+      name: 'V',
+      nameLocation: 'end',
+      axisLabel: { color: '#aaa' },
+      axisLine: { lineStyle: { color: '#444' } },
+      splitLine: { lineStyle: { color: '#2a2a2a' } },
+      scale: true,
+    },
     dataZoom: autoScroll
       ? [{ type: 'inside', filterMode: 'none' }]
       : [{ type: 'inside' }, { type: 'slider', height: 20, bottom: 4 }],
@@ -593,6 +590,9 @@ export default function BatteryPage() {
     const readings = readingsByBattery[batteryId] || [];
     const ocvData = readings.filter(r => r.phase === 'ocv').map(r => [r.t, r.v]);
     const ccvData = readings.filter(r => r.phase === 'ccv').map(r => [r.t, r.v]);
+    const ccvDataConnected = ocvData.length > 0 && ccvData.length > 0
+      ? [ocvData[ocvData.length - 1], ...ccvData]
+      : ccvData;
     return {
       backgroundColor: 'transparent',
       grid: { top: 20, right: 16, bottom: 24, left: 48 },
@@ -612,7 +612,7 @@ export default function BatteryPage() {
       },
       series: [
         { name: 'OCV', type: 'line', data: ocvData, symbol: 'none', lineStyle: { color: '#ffee58', width: 1.5 } },
-        { name: 'CCV', type: 'line', data: ccvData, symbol: 'none', lineStyle: { color: '#0091ea', width: 1.5 } },
+        { name: 'CCV', type: 'line', data: ccvDataConnected, symbol: 'none', lineStyle: { color: '#0091ea', width: 1.5 } },
       ],
     };
   }, [readingsByBattery]);
@@ -865,7 +865,7 @@ export default function BatteryPage() {
                   </Select>
                 </Form.Item>
               </Col>
-              <Col xs={12} sm={8}>
+              <Col xs={12} sm={12}>
                 <Form.Item label={t('batteryOcvStandard')} style={{ marginBottom: 0 }} required>
                   <InputNumber
                     value={ocvCenter}
@@ -877,7 +877,7 @@ export default function BatteryPage() {
                   />
                 </Form.Item>
               </Col>
-              <Col xs={12} sm={8}>
+              <Col xs={12} sm={12}>
                 <Form.Item label={t('batteryCcvStandard')} style={{ marginBottom: 0 }} required>
                   <InputNumber
                     value={ccvCenter}
@@ -984,7 +984,7 @@ export default function BatteryPage() {
             <ReactECharts
               option={chartOption}
               style={{ height: 280 }}
-              notMerge={false}
+              notMerge={true}
               lazyUpdate={true}
               theme="dark"
             />
@@ -1148,6 +1148,11 @@ export default function BatteryPage() {
             setOcvCenter(null);
             setCcvCenter(null);
             setResumeModalVisible(false);
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ action: 'clear_session' }));
+            } else {
+              pendingNewSessionRef.current = true;
+            }
           }}>{t('batteryNewSession')}</Button>,
           <Button key="continue" type="primary" onClick={() => {
             setResumeModalVisible(false);
